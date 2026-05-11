@@ -1,0 +1,26 @@
+[
+  {
+    "id": "20260511205724528229",
+    "question": "Show the 5 most expensive products",
+    "sql": "SELECT * FROM products ORDER BY price DESC LIMIT 5;",
+    "count": 5,
+    "success": true,
+    "time": "11.05.2026 20:57"
+  },
+  {
+    "id": "20260511205638065910",
+    "question": "SELECT * FROM products ORDER BY id DESC LIMIT 10;",
+    "sql": "SELECT * FROM products ORDER BY id DESC LIMIT 10;",
+    "count": 10,
+    "success": true,
+    "time": "11.05.2026 20:56"
+  },
+  {
+    "id": "20260511204322150200",
+    "question": "покажи 10 последних товаров",
+    "sql": "SELECT * FROM products ORDER BY id DESC LIMIT 10;",
+    "count": 10,
+    "success": true,
+    "time": "11.05.2026 20:43"
+  }
+]

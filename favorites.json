@@ -1,0 +1,8 @@
+[
+  {
+    "id": "20260511204329144263",
+    "question": "покажи 10 последних товаров",
+    "sql": "SELECT * FROM products ORDER BY id DESC LIMIT 10;",
+    "time": "11.05.2026 20:43"
+  }
+]

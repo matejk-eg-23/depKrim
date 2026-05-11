@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Конструктор</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">
+                    <svg viewBox="0 0 24 24" fill="white">
+                        <path d="M2 20h20v-4H2v4zm2-3h2v2H4v-2zM2 4v4h20V4H2zm4 3H4V5h2v2zm-4 7h20v-4H2v4zm2-3h2v2H4v-2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="brand-name">SQL Конструктор</div>
+                    <div class="brand-sub">Вопрос → SQL → Результат</div>
+                </div>
+            </div>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('structure')">Структура</button>
+                <button class="tab" onclick="switchTab('history')">История</button>
+                <button class="tab" onclick="switchTab('favorites')">Избранное</button>
+            </div>
+            
+            <div class="tab-panel active" id="structurePanel">
+                <div class="section-label">Таблицы</div>
+                <div id="schemaTree" class="schema-loading">Загрузка…</div>
+            </div>
+            
+            <div class="tab-panel" id="historyPanel">
+                <div class="section-label section-label-row">
+                    <span>Последние запросы</span>
+                    <button class="btn-link" onclick="clearHistory()">Очистить</button>
+                </div>
+                <div id="historyList"></div>
+            </div>
+            
+            <div class="tab-panel" id="favoritesPanel">
+                <div class="section-label">Сохранённые запросы</div>
+                <div id="favoritesList"></div>
+            </div>
+        </aside>
+        
+        <main class="main">
+            <div class="input-zone">
+                <div class="input-row">
+                    <textarea id="questionInput" placeholder="Например: покажи 5 самых дорогих товаров..."></textarea>
+                    <button id="sendBtn" class="btn-send" onclick="handleSend()">Сгенерировать SQL</button>
+                </div>
+                <div class="input-footer">
+                    <button id="examplesBtn" class="btn-examples">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
+                        </svg>
+                        Примеры
+                    </button>
+                    <div class="hint-text">Enter — отправить &nbsp;·&nbsp; Shift+Enter — новая строка</div>
+                </div>
+                <div id="examplesDropdown" class="examples-dropdown"></div>
+            </div>
+            
+            <div class="results-zone" id="resultsZone">
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                    </div>
+                    <p>Задайте вопрос к базе данных</p>
+                    <p class="empty-sub">Поддерживается русский и английский язык</p>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+<!-- Modal для просмотра SQL -->
+<div id="sqlModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>SQL запрос</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <textarea id="modalSqlCode" class="modal-sql" readonly></textarea>
+        <div class="modal-actions">
+            <button class="btn-sm" onclick="copyModalSQL()">Копировать</button>
+            <button class="btn-sm primary" onclick="useThisSQL()">Использовать этот запрос</button>
+        </div>
+    </div>
+</div>
+  </body>
+</html>

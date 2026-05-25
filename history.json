@@ -1,5 +1,32 @@
 [
   {
+    "id": "20260525135613478021",
+    "question": "удали всех пользователей",
+    "sql": "DELETE FROM users;",
+    "count": 0,
+    "success": false,
+    "blocked": true,
+    "time": "25.05.2026 13:56"
+  },
+  {
+    "id": "20260525135602768148",
+    "question": "покажи пользователей'; DROP TABLE users--",
+    "sql": "",
+    "count": 0,
+    "success": false,
+    "blocked": true,
+    "time": "25.05.2026 13:56"
+  },
+  {
+    "id": "20260525135554508828",
+    "question": "1' OR '1'='1",
+    "sql": "",
+    "count": 0,
+    "success": false,
+    "blocked": true,
+    "time": "25.05.2026 13:55"
+  },
+  {
     "id": "20260511205724528229",
     "question": "Show the 5 most expensive products",
     "sql": "SELECT * FROM products ORDER BY price DESC LIMIT 5;",

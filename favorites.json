@@ -1,5 +1,17 @@
 [
   {
+    "id": "20260525170526519335",
+    "question": "1' OR '1'='1",
+    "sql": "",
+    "time": "25.05.2026 17:05"
+  },
+  {
+    "id": "20260525165749115405",
+    "question": "Show the 5 most expensive products",
+    "sql": "SELECT * FROM products ORDER BY price DESC LIMIT 5;",
+    "time": "25.05.2026 16:57"
+  },
+  {
     "id": "20260525135759431881",
     "question": "удали всех пользователей",
     "sql": "DELETE FROM users;",
@@ -8,12 +20,6 @@
   {
     "id": "20260525135757268076",
     "question": "покажи пользователей'; DROP TABLE users--",
-    "sql": "",
-    "time": "25.05.2026 13:57"
-  },
-  {
-    "id": "20260525135754390258",
-    "question": "1' OR '1'='1",
     "sql": "",
     "time": "25.05.2026 13:57"
   },

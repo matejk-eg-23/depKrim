@@ -1,7 +1,7 @@
 // ─── Схема БД ─────────────────────────────────────────
 async function loadSchema() {
     try {
-        const res = await fetch("/api/schema");
+        const res = await apiFetch("/api/schema");
         const data = await res.json();
         if (data.error) {
             document.getElementById("schemaTree").innerHTML =
@@ -64,7 +64,7 @@ function switchTab(tabName) {
 // ─── История ──────────────────────────────────────────
 async function loadHistory() {
     try {
-        const res = await fetch("/api/history");
+        const res = await apiFetch("/api/history");
         const data = await res.json();
         const container = document.getElementById("historyList");
 
@@ -98,7 +98,7 @@ async function loadHistory() {
 async function deleteHistoryItem(id) {
     if (!confirm("Удалить этот запрос из истории?")) return;
     try {
-        const response = await fetch("/api/history/remove", {
+        const response = await apiFetch("/api/history/remove", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id })
@@ -117,7 +117,7 @@ async function deleteHistoryItem(id) {
 async function clearHistory() {
     if (!confirm("Очистить всю историю запросов?")) return;
     try {
-        await fetch("/api/history/clear", { method: "POST" });
+        await apiFetch("/api/history/clear", { method: "POST" });
         loadHistory();
     } catch (e) {
         alert("Ошибка при очистке истории");
@@ -127,7 +127,7 @@ async function clearHistory() {
 // ─── Избранное ────────────────────────────────────────
 async function loadFavorites() {
     try {
-        const res = await fetch("/api/favorites");
+        const res = await apiFetch("/api/favorites");
         const data = await res.json();
         const container = document.getElementById("favoritesList");
 
@@ -155,7 +155,7 @@ async function loadFavorites() {
 
 async function addToFavorites(question, sql) {
     try {
-        await fetch("/api/favorites/add", {
+        await apiFetch("/api/favorites/add", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ question, sql })
@@ -168,7 +168,7 @@ async function addToFavorites(question, sql) {
 
 async function addToFavoritesFromHistory(id) {
     try {
-        const res = await fetch("/api/history");
+        const res = await apiFetch("/api/history");
         const data = await res.json();
         const item = data.history.find(h => h.id === id);
         if (item) {
@@ -181,7 +181,7 @@ async function addToFavoritesFromHistory(id) {
 
 async function removeFavorite(id) {
     try {
-        await fetch("/api/favorites/remove", {
+        await apiFetch("/api/favorites/remove", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id })
@@ -241,7 +241,7 @@ function reuseSQL(sql) {
 // ─── Примеры ──────────────────────────────────────────
 async function loadExamples() {
     try {
-        const res = await fetch("/api/examples");
+        const res = await apiFetch("/api/examples");
         const data = await res.json();
         const dropdown = document.getElementById("examplesDropdown");
         dropdown.innerHTML = data.examples.map(ex =>
@@ -276,7 +276,7 @@ async function handleSend() {
     document.getElementById("emptyState")?.remove();
 
     try {
-        const res = await fetch("/api/generate", {
+        const res = await apiFetch("/api/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ question })
@@ -353,7 +353,7 @@ async function runSQL(sqlId, tblId) {
     if (!sql) return;
 
     try {
-        const res = await fetch("/api/execute", {
+        const res = await apiFetch("/api/execute", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sql })
@@ -393,7 +393,7 @@ function buildTable(result) {
 
     let html = `<div class="table-toolbar">
         <div class="table-meta">${count} ${rowLabel}</div>
-        <div class="export-group">
+        <div class="export-group" ${currentUser?.permissions & 4 ? "" : "hidden"}>
             <button class="btn-export" onclick="exportCSV('${exportId}')">Экспорт CSV</button>
             <button class="btn-export" onclick="exportExcel('${exportId}')">Экспорт Excel</button>
         </div>
@@ -417,39 +417,16 @@ function buildTable(result) {
 }
 
 // ─── Экспорт ──────────────────────────────────────────
-function exportCSV(exportId) {
-    const { columns, rows } = window["td" + exportId];
-    const esc = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const lines = [
-        columns.map(esc).join(", "),
-        ...rows.map(row => row.map(esc).join(", "))
-    ];
-    download(lines.join("\r\n"), "результат.csv", "text/csv;charset=utf-8;");
+async function exportResult(exportId, format) {
+    try {
+        const table = window["td" + exportId];
+        const result = await sendJSON('/api/export', {...table, format});
+        download(result.data, result.filename, result.mime);
+    } catch (error) { showError(error.message); }
 }
 
-function exportExcel(exportId) {
-    const { columns, rows } = window["td" + exportId];
-    const xe = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-    const makeRow = cells => `<Row>${cells}</Row>`;
-    const makeCell = (val, type) => `<Cell><Data ss:Type="${type}">${xe(val)}</Data></Cell>`;
-
-    const header = makeRow(columns.map(c => makeCell(c, "String")));
-    const body = rows.map(row =>
-        makeRow(row.map(v => {
-            const isNum = v !== null && v !== "" && !isNaN(v);
-            return makeCell(v ?? "", isNum ? "Number" : "String");
-        }))
-    ).join("");
-
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-<Worksheet ss:Name="Результат">
-<Table>${header}${body}</Table>
-</Worksheet>
-</Workbook>`;
-
-    download(xml, "результат.xls", "application/vnd.ms-excel;charset=utf-8;");
-}
+function exportCSV(exportId) { return exportResult(exportId, 'csv'); }
+function exportExcel(exportId) { return exportResult(exportId, 'excel'); }
 
 function download(content, filename, mimeType) {
     const blob = new Blob(["\uFEFF" + content], { type: mimeType });
@@ -488,5 +465,3 @@ function declension(n) {
 }
 
 // ─── Инициализация ────────────────────────────────────
-loadSchema();
-loadExamples();

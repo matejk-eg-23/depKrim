@@ -6,10 +6,15 @@ import threading
 import os
 import json
 import re
+import csv
+import io
+import uuid
+from html import escape
 from contextlib import closing
 from datetime import datetime
 
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, g, has_request_context
+from auth import register_auth, initialize_auth, has_permission, PERM_VIEW_CONFIDENTIAL
 import sqlite3
 import requests
 
@@ -24,11 +29,11 @@ def start_ollama():
         time.sleep(3)
         print("Ollama запущена")
 
-start_ollama()
-
 app = Flask(__name__,
             template_folder='templates',
             static_folder='static')
+register_auth(app)
+data_lock = threading.RLock()
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 DB_PATH    = os.path.join(BASE_DIR, "university.db")
@@ -260,6 +265,8 @@ def get_schema():
     schema_dict = {}
 
     for table in tables:
+        if table.casefold().startswith('conf_') and not can_view_confidential():
+            continue
         cursor.execute(f"PRAGMA table_info({table});")
         columns = cursor.fetchall()
         cursor.execute(f"SELECT COUNT(*) FROM {table};")
@@ -302,6 +309,21 @@ def normalize_question(question):
     return " ".join(re.findall(r"\w+", question.casefold().replace("ё", "е")))
 
 
+def can_view_confidential():
+    return has_request_context() and has_permission(PERM_VIEW_CONFIDENTIAL)
+
+
+def protect_confidential_reads(conn):
+    allowed = can_view_confidential()
+
+    def authorize(action, table, column, database, source):
+        if action == sqlite3.SQLITE_READ and (table or '').casefold().startswith('conf_') and not allowed:
+            return sqlite3.SQLITE_DENY
+        return sqlite3.SQLITE_OK
+
+    conn.set_authorizer(authorize)
+
+
 def check_generated_sql(sql):
     """Проверяет ограничения и компилирует SQL без выполнения запроса."""
     safe, reason = validate_sql(sql)
@@ -311,6 +333,7 @@ def check_generated_sql(sql):
         from pathlib import Path
         with closing(sqlite3.connect(Path(DB_PATH).resolve().as_uri() + "?mode=ro", uri=True)) as conn:
             conn.execute("PRAGMA query_only = ON")
+            protect_confidential_reads(conn)
             conn.execute("EXPLAIN " + sql)
         return True, ""
     except sqlite3.Error as exc:
@@ -409,17 +432,13 @@ def execute_sql(sql):
     try:
         # uri=True + mode=ro гарантирует, что даже при обходе фильтров
         # SQLite не позволит изменить файл БД на уровне ОС
-        conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
-        conn.row_factory = sqlite3.Row
-
-        # Дополнительные ограничения внутри соединения
-        conn.execute("PRAGMA query_only = ON;")           # запрет любых изменений
-        conn.execute("PRAGMA max_page_count = 10000;")    # ограничение объёма данных
-
-        cursor = conn.cursor()
-        cursor.execute(sql_stripped)
-        rows = cursor.fetchmany(1000)                     # жёсткий лимит строк
-        conn.close()
+        from pathlib import Path
+        with closing(sqlite3.connect(Path(DB_PATH).resolve().as_uri() + '?mode=ro', uri=True)) as conn:
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA query_only = ON;")
+            protect_confidential_reads(conn)
+            cursor = conn.execute(sql_stripped)
+            rows = cursor.fetchmany(1000)
 
         if not rows:
             return {"columns": [], "rows": [], "count": 0}
@@ -428,8 +447,11 @@ def execute_sql(sql):
         data    = [list(row) for row in rows]
         return {"columns": columns, "rows": data, "count": len(data)}
 
-    except sqlite3.OperationalError as e:
+    except sqlite3.DatabaseError as e:
         err_msg = str(e)
+        if 'prohibited' in err_msg or 'not authorized' in err_msg:
+            return {"security_blocked": True, "permission_denied": True,
+                    "message": "Недостаточно прав для чтения конфиденциальных таблиц"}
         # Не раскрываем детали схемы в сообщениях об ошибках
         if "no such table" in err_msg or "no such column" in err_msg:
             return {"error": "Ошибка SQL: указанная таблица или колонка не существует"}
@@ -446,21 +468,27 @@ def load_json(path):
     return []
 
 def save_json(path, data):
-    with open(path, "w", encoding="utf-8") as f:
+    temporary = str(path) + '.tmp'
+    with open(temporary, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+    os.replace(temporary, path)
 
 def add_to_history(question, sql, count, success, blocked=False):
-    history = load_json(HIST_PATH)
-    history.insert(0, {
-        "id":       datetime.now().strftime("%Y%m%d%H%M%S%f"),
+    with data_lock:
+        history = load_json(HIST_PATH)
+        history.insert(0, {
+        "id":       uuid.uuid4().hex,
+        "user_id": g.current_user['id'],
         "question": question,
         "sql":      sql,
         "count":    count,
         "success":  success,
         "blocked":  blocked,
         "time":     datetime.now().strftime("%d.%m.%Y %H:%M"),
-    })
-    save_json(HIST_PATH, history[:100])
+        })
+        mine = [item for item in history if item.get('user_id') == g.current_user['id']][:100]
+        others = [item for item in history if item.get('user_id') != g.current_user['id']]
+        save_json(HIST_PATH, mine + others)
 
 # ── Маршруты ─────────────────────────────────────────────────────────────────
 @app.route("/")
@@ -533,7 +561,8 @@ def execute():
     if len(sql) > 2000:
         return jsonify({"error": "SQL-запрос слишком длинный (максимум 2000 символов)"}), 400
 
-    return jsonify(execute_sql(sql))
+    result = execute_sql(sql)
+    return jsonify(result), 403 if result.get('permission_denied') else 200
 
 @app.route("/api/examples")
 def examples():
@@ -555,7 +584,7 @@ def examples():
 # ── История (API) ────────────────────────────────────────────────────────────
 @app.route("/api/history")
 def history():
-    return jsonify({"history": load_json(HIST_PATH)})
+    return jsonify({"history": [item for item in load_json(HIST_PATH) if item.get('user_id') == g.current_user['id']]})
 
 @app.route("/api/history/remove", methods=["POST"])
 def history_remove():
@@ -563,45 +592,83 @@ def history_remove():
     hist_id = data.get("id")
     if not hist_id:
         return jsonify({"error": "ID не указан"}), 400
-    history = load_json(HIST_PATH)
-    history = [h for h in history if h["id"] != hist_id]
-    save_json(HIST_PATH, history)
+    with data_lock:
+        history = load_json(HIST_PATH)
+        filtered = [h for h in history if not (h['id'] == hist_id and h.get('user_id') == g.current_user['id'])]
+        if len(filtered) == len(history):
+            return jsonify(error='Запись не найдена'), 404
+        save_json(HIST_PATH, filtered)
     return jsonify({"ok": True})
 
 @app.route("/api/history/clear", methods=["POST"])
 def history_clear():
-    save_json(HIST_PATH, [])
+    with data_lock:
+        save_json(HIST_PATH, [h for h in load_json(HIST_PATH) if h.get('user_id') != g.current_user['id']])
     return jsonify({"ok": True})
 
 # ── Избранное (API) ──────────────────────────────────────────────────────────
 @app.route("/api/favorites")
 def favorites():
-    return jsonify({"favorites": load_json(FAV_PATH)})
+    return jsonify({"favorites": [item for item in load_json(FAV_PATH) if item.get('user_id') == g.current_user['id']]})
 
 @app.route("/api/favorites/add", methods=["POST"])
 def favorites_add():
     data = request.get_json()
-    favs = load_json(FAV_PATH)
     item = {
-        "id":       datetime.now().strftime("%Y%m%d%H%M%S%f"),
+        "id":       uuid.uuid4().hex,
+        "user_id": g.current_user['id'],
         "question": data.get("question", ""),
         "sql":      data.get("sql", ""),
         "time":     datetime.now().strftime("%d.%m.%Y %H:%M"),
     }
-    favs.insert(0, item)
-    save_json(FAV_PATH, favs)
+    if not isinstance(item['question'], str) or not isinstance(item['sql'], str) or len(item['question']) > 500 or len(item['sql']) > 2000:
+        return jsonify(error='Некорректный вопрос или SQL'), 400
+    with data_lock:
+        favs = load_json(FAV_PATH)
+        favs.insert(0, item)
+        save_json(FAV_PATH, favs)
     return jsonify({"ok": True, "item": item})
 
 @app.route("/api/favorites/remove", methods=["POST"])
 def favorites_remove():
     data = request.get_json()
     fav_id = data.get("id")
-    favs = [f for f in load_json(FAV_PATH) if f["id"] != fav_id]
-    save_json(FAV_PATH, favs)
+    with data_lock:
+        favs = load_json(FAV_PATH)
+        filtered = [f for f in favs if not (f['id'] == fav_id and f.get('user_id') == g.current_user['id'])]
+        if len(filtered) == len(favs):
+            return jsonify(error='Запись не найдена'), 404
+        save_json(FAV_PATH, filtered)
     return jsonify({"ok": True})
 
 
+@app.post('/api/export')
+def export_data():
+    data = request.get_json() or {}
+    columns, rows = data.get('columns'), data.get('rows')
+    if not isinstance(columns, list) or not columns or len(columns) > 200 or not isinstance(rows, list) or len(rows) > 1000:
+        return jsonify(error='Некорректная таблица экспорта'), 400
+    if any(not isinstance(row, list) or len(row) != len(columns) for row in rows):
+        return jsonify(error='Некорректные строки таблицы'), 400
+    if data.get('format') == 'csv':
+        output = io.StringIO(newline='')
+        writer = csv.writer(output)
+        writer.writerow(columns)
+        writer.writerows(rows)
+        return jsonify(data=output.getvalue(), filename='результат.csv', mime='text/csv;charset=utf-8;')
+    if data.get('format') == 'excel':
+        def xml_row(row):
+            cells = ''.join('<Cell><Data ss:Type="String">' + escape(str(value) if value is not None else '') + '</Data></Cell>' for value in row)
+            return '<Row>' + cells + '</Row>'
+        content = '<?xml version="1.0" encoding="UTF-8"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Результат"><Table>'
+        content += xml_row(columns) + ''.join(xml_row(row) for row in rows) + '</Table></Worksheet></Workbook>'
+        return jsonify(data=content, filename='результат.xls', mime='application/vnd.ms-excel;charset=utf-8;')
+    return jsonify(error='Неизвестный формат экспорта'), 400
+
+
 if __name__ == "__main__":
+    initialize_auth(app)
+    start_ollama()
     if not os.path.exists(DB_PATH):
         print(f"ВНИМАНИЕ: База данных не найдена — {DB_PATH}")
         print("Сначала запусти: python database.py")

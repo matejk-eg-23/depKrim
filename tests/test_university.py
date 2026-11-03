@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from repair_demo_data import repair_demo_data
+from auth_helpers import configure_test_auth, authenticated_client
 
 ROOT = Path(__file__).resolve().parents[1]
 DATABASE = runpy.run_path(str(ROOT / 'database.py'))
@@ -103,11 +104,12 @@ class UniversityDatabaseTests(unittest.TestCase):
         state['DB_PATH'] = str(self.path)
         state['HIST_PATH'] = str(self.path.parent / 'history.json')
         state['FAV_PATH'] = str(self.path.parent / 'favorites.json')
+        configure_test_auth(state['app'], self.path.parent)
         return state
 
     def test_all_suggested_questions_use_valid_templates(self):
         state = self.generation_state()
-        client = state['app'].test_client()
+        client = authenticated_client(state['app'])
         for question in client.get('/api/examples').get_json()['examples']:
             with self.subTest(question=question), patch('requests.post') as post:
                 result = state['generate_sql'](question)
@@ -159,14 +161,8 @@ class UniversityDatabaseTests(unittest.TestCase):
         self.assertEqual(list(self.conn.iterdump()), before)
 
     def test_application_reads_university_schema_and_join_queries(self):
-        with patch('requests.get'), contextlib.redirect_stdout(io.StringIO()):
-            module = runpy.run_path(str(ROOT / 'app.py'), run_name='verification')
-        state = module['index'].__globals__
-        self.assertEqual(Path(state['DB_PATH']), ROOT / 'university.db')
-        state['DB_PATH'] = str(self.path)
-        state['HIST_PATH'] = str(self.path.parent / 'history.json')
-        state['FAV_PATH'] = str(self.path.parent / 'favorites.json')
-        client = module['app'].test_client()
+        state = self.generation_state()
+        client = authenticated_client(state['app'])
         page = client.get('/')
         self.assertEqual(page.status_code, 200)
         self.assertIn('университета', page.get_data(as_text=True))

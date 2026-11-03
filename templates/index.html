@@ -7,7 +7,34 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="app">
+    <main id="loginScreen" class="auth-screen">
+        <form class="auth-card" id="loginForm">
+            <div class="auth-eyebrow">SQL КОНСТРУКТОР · УНИВЕРСИТЕТ</div>
+            <h1>Вход в систему</h1>
+            <p>Войдите, чтобы задавать вопросы к базе и сохранять свои запросы.</p>
+            <label>Логин<input id="loginUsername" autocomplete="username" required maxlength="40" autofocus></label>
+            <label>Пароль<input id="loginPassword" type="password" autocomplete="current-password" required maxlength="128"></label>
+            <p class="form-error" id="loginError" role="alert"></p>
+            <button class="auth-submit" type="submit">Войти</button>
+            <p class="auth-note">Учётную запись выдаёт администратор. Для первого входа admin временный пароль сохранён в файле .initial-admin-password рядом с приложением.</p>
+        </form>
+    </main>
+    <main id="passwordScreen" class="auth-screen hidden">
+        <form class="auth-card" id="passwordForm">
+            <div class="auth-eyebrow">БЕЗОПАСНОСТЬ УЧЁТНОЙ ЗАПИСИ</div>
+            <h1>Смена пароля</h1>
+            <p id="passwordHint">Замените временный пароль, чтобы продолжить работу.</p>
+            <input id="passwordUsername" class="hidden" autocomplete="username" aria-label="Логин">
+            <label>Текущий пароль<input id="oldPassword" type="password" autocomplete="current-password" required maxlength="128"></label>
+            <label>Новый пароль<input id="newPassword" type="password" autocomplete="new-password" required minlength="10" maxlength="128"></label>
+            <label>Повторите новый пароль<input id="confirmPassword" type="password" autocomplete="new-password" required maxlength="128"></label>
+            <p class="auth-note">От 10 символов: строчная и заглавная буквы, цифра и специальный символ. Не используйте логин в пароле.</p>
+            <p class="form-error" id="passwordError" role="alert"></p>
+            <button class="auth-submit" type="submit">Сохранить пароль</button>
+            <button class="btn-sm" type="button" onclick="handleLogout()">Выйти</button>
+        </form>
+    </main>
+    <div class="app hidden" id="mainApp">
         <aside class="sidebar">
             <div class="brand">
                 <div class="brand-icon">
@@ -17,7 +44,7 @@
                 </div>
                 <div>
                     <div class="brand-name">SQL Конструктор</div>
-                    <div class="brand-sub">Вопрос → SQL → Результат</div>
+                    <div class="brand-sub" id="currentUserName">Вопрос → SQL → Результат</div>
                 </div>
             </div>
             
@@ -43,6 +70,11 @@
             <div class="tab-panel" id="favoritesPanel">
                 <div class="section-label">Сохранённые запросы</div>
                 <div id="favoritesList"></div>
+            </div>
+            <div class="account-actions">
+                <button id="adminButton" class="btn-sm hidden" onclick="showAdminPanel()">Управление пользователями</button>
+                <button class="btn-sm" onclick="showPasswordScreen()">Сменить пароль</button>
+                <button class="btn-sm" onclick="handleLogout()">Выйти</button>
             </div>
         </aside>
         
@@ -78,6 +110,21 @@
         </main>
     </div>
     
+    <dialog id="adminDialog" class="admin-dialog">
+        <div class="admin-heading"><div><div class="auth-eyebrow">АДМИНИСТРИРОВАНИЕ</div><h2>Пользователи</h2></div><button class="btn-sm" onclick="document.getElementById('adminDialog').close()">Закрыть</button></div>
+        <form id="addUserForm" class="add-user-form">
+            <label>Логин<input id="newUserLogin" required pattern="[a-zA-Z0-9_]{3,40}" autocomplete="off" maxlength="40"></label>
+            <label>Имя<input id="newUserName" maxlength="100" autocomplete="off"></label>
+            <label>Временный пароль<input id="newUserPassword" type="password" required minlength="10" maxlength="128" autocomplete="new-password"></label>
+            <label>Роль<select id="newUserRole"><option value="guest">Гость</option><option value="analyst">Аналитик</option><option value="operator">Оператор</option><option value="admin">Администратор</option></select></label>
+            <button class="auth-submit" type="submit">Создать пользователя</button>
+        </form>
+        <p class="auth-note">Первый вход требует смены пароля. Гость читает данные, аналитик также экспортирует. Право оператора на изменение SQL будет подключено вместе с безопасным выполнением команд. Конфиденциальные таблицы доступны только администратору.</p>
+        <p class="form-error" id="adminError" role="alert"></p>
+        <p class="admin-message" id="adminMessage" role="status"></p>
+        <div class="table-wrap"><table><thead><tr><th>Логин</th><th>Имя</th><th>Роль</th><th>Пароль</th><th>Действия</th></tr></thead><tbody id="usersBody"></tbody></table></div>
+    </dialog>
+    <script src="{{ url_for('static', filename='auth.js') }}"></script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 <!-- Modal для просмотра SQL -->
 <div id="sqlModal" class="modal">

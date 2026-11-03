@@ -22,6 +22,34 @@
   --sans: -apple-system,'Segoe UI',system-ui,sans-serif;
 }
 
+.hidden { display: none !important; }
+[hidden] { display: none !important; }
+.auth-screen { min-height: 100vh; display: grid; place-items: center; padding: 32px 16px; background: radial-gradient(ellipse at top left, var(--accent-light), var(--bg) 65%); }
+.auth-card { width: min(100%, 460px); padding: 36px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 16px 48px #1a1a180a; display: grid; gap: 16px; }
+.auth-eyebrow { font-size: 10px; color: var(--accent); font-weight: 700; letter-spacing: .09em; }
+.auth-card h1 { font-size: 26px; line-height: 1.2; font-weight: 600; }
+.auth-card p { color: var(--text-dim); }
+.auth-card label, .add-user-form label { display: grid; gap: 6px; font-size: 12px; font-weight: 500; }
+.auth-card input, .add-user-form input, .add-user-form select, #usersBody select { width: 100%; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border-mid); border-radius: 6px; font: inherit; color: var(--text); }
+.auth-card input:focus, .add-user-form input:focus, .add-user-form select:focus { outline: 2px solid var(--accent-dim); border-color: var(--accent); }
+.auth-submit { border: 0; border-radius: 6px; background: var(--accent); color: white; padding: 12px 18px; font: inherit; font-weight: 600; cursor: pointer; }
+.auth-submit:hover { background: var(--accent-hover); }
+.auth-submit:disabled { opacity: .6; cursor: wait; }
+.auth-note { font-size: 11px; color: var(--text-dim); line-height: 1.6; overflow-wrap: anywhere; }
+.form-error { color: var(--error) !important; font-size: 12px; }
+.form-error:empty, .admin-message:empty { display: none; }
+.account-actions { display: grid; gap: 8px; margin-top: auto; padding: 16px; border-top: 1px solid var(--border); }
+.admin-dialog { margin: auto; width: min(1100px, calc(100% - 32px)); max-height: calc(100vh - 48px); border: 1px solid var(--border); border-radius: 14px; padding: 24px; color: var(--text); background: var(--surface); }
+.admin-dialog::backdrop { background: #1a1a1866; }
+.admin-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
+.admin-heading h2 { font-size: 22px; font-weight: 600; }
+.add-user-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 20px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 14px; }
+.add-user-form .auth-submit { grid-column: 1 / -1; }
+.admin-dialog .table-wrap { margin-top: 18px; }
+.admin-dialog td .btn-sm { margin: 3px; }
+.admin-message { color: var(--accent); margin: 12px 0; font-size: 12px; }
+@media (max-width: 600px) { .auth-card { padding: 24px; } .add-user-form { grid-template-columns: 1fr; padding: 14px; } .admin-dialog { padding: 16px; } }
+
 html, body { height: 100%; font-family: var(--sans); background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
 
 /* ─── Layout ─── */

@@ -8,6 +8,41 @@ from datetime import datetime, timedelta
 
 DB_PATH = Path(__file__).resolve().parent / "university.db"
 
+FEMALE_FIRST_NAMES = {"Мария", "Анна", "Ольга", "Екатерина", "Наталья", "Татьяна",
+                      "Юлия", "Елена", "Виктория", "София", "Полина", "Алиса"}
+MALE_FIRST_NAMES = {"Алексей", "Дмитрий", "Сергей", "Иван", "Андрей", "Михаил",
+                    "Павел", "Роман", "Кирилл", "Артем", "Никита", "Максим"}
+SURNAME_PAIRS = [(name, name + "а") for name in (
+    "Иванов", "Петров", "Сидоров", "Козлов", "Новиков", "Морозов", "Волков",
+    "Лебедев", "Соколов", "Попов", "Кузнецов", "Васильев", "Смирнов")]
+PATRONYMIC_PAIRS = [
+    ("Алексеевич", "Алексеевна"), ("Дмитриевич", "Дмитриевна"),
+    ("Сергеевич", "Сергеевна"), ("Иванович", "Ивановна"),
+    ("Андреевич", "Андреевна"), ("Михайлович", "Михайловна"),
+]
+# У каждого совместителя две кафедры по половине ставки.
+SECONDARY_DEPARTMENTS = [
+    (10, "Елена", "Морозова", 2),
+    (11, "Дмитрий", "Петров", 7),
+    (12, "Татьяна", "Соколова", 1),
+]
+
+
+def agree_demo_name(first_name, last_name, patronymic):
+    """Согласует только известные формы из искусственного учебного набора."""
+    if first_name not in FEMALE_FIRST_NAMES | MALE_FIRST_NAMES:
+        return last_name, patronymic
+    index = 1 if first_name in FEMALE_FIRST_NAMES else 0
+    for pair in SURNAME_PAIRS:
+        if last_name in pair:
+            last_name = pair[index]
+            break
+    for pair in PATRONYMIC_PAIRS:
+        if patronymic in pair:
+            patronymic = pair[index]
+            break
+    return last_name, patronymic
+
 
 def create_tables(conn):
     conn.execute("PRAGMA foreign_keys = ON")
@@ -313,6 +348,8 @@ def fill_data(conn):
         (11, 6, 0.5),  # Петров — ГП (совместительство)
         (12, 2, 0.5),  # Соколова — ИИ (совместительство)
     ]
+    prof_deps.extend((prof_id, department_id, 0.5)
+                     for prof_id, _, _, department_id in SECONDARY_DEPARTMENTS)
     cursor.executemany(
         "INSERT OR IGNORE INTO professor_departments (professor_id, department_id, rate) VALUES (?,?,?)",
         prof_deps
@@ -374,8 +411,7 @@ def fill_data(conn):
         fn = random.choice(first_names)
         ln = random.choice(last_names)
         pat = random.choice(patronymics)
-        if fn in ["Мария", "Анна", "Ольга", "Екатерина", "Наталья", "Татьяна", "Елена", "Виктория", "София", "Полина", "Алиса"]:
-            pat = pat.replace("евич", "евна").replace("ич", "на")
+        ln, pat = agree_demo_name(fn, ln, pat)
         spec_id = random.randint(1, 9)
         course_year = random.randint(1, 4)
         group = random.choice(groups)

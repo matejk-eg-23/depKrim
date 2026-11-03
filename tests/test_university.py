@@ -10,6 +10,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from repair_demo_data import repair_demo_data
+
 ROOT = Path(__file__).resolve().parents[1]
 DATABASE = runpy.run_path(str(ROOT / 'database.py'))
 
@@ -59,6 +61,40 @@ class UniversityDatabaseTests(unittest.TestCase):
 
     def test_database_path_is_relative_to_script(self):
         self.assertEqual(DATABASE['DB_PATH'], ROOT / 'university.db')
+
+    def test_student_names_agree_and_professors_have_multiple_departments(self):
+        female = DATABASE['FEMALE_FIRST_NAMES']
+        for first, last, patronymic in self.conn.execute(
+                'SELECT first_name, last_name, patronymic FROM students'):
+            with self.subTest(first=first, last=last):
+                if first in female:
+                    self.assertTrue(last.endswith('а'), last)
+                    self.assertTrue(patronymic.endswith('на'), patronymic)
+                else:
+                    self.assertFalse(last.endswith('а'), last)
+                    self.assertTrue(patronymic.endswith('ич'), patronymic)
+        professors = self.conn.execute(
+            'SELECT professor_id, COUNT(*), SUM(rate) FROM professor_departments '
+            'GROUP BY professor_id HAVING COUNT(*) > 1 ORDER BY professor_id'
+        ).fetchall()
+        self.assertEqual(professors, [(10, 2, 1.0), (11, 2, 1.0), (12, 2, 1.0)])
+
+    def test_repair_preserves_related_data_and_is_repeatable(self):
+        for prof_id, _, _, department_id in DATABASE['SECONDARY_DEPARTMENTS']:
+            self.conn.execute('DELETE FROM professor_departments WHERE professor_id=? AND department_id=?',
+                              (prof_id, department_id))
+        self.conn.execute("UPDATE students SET first_name='Роман', last_name='Козлова', patronymic='Алексеевна' WHERE id=1")
+        self.conn.execute("UPDATE students SET first_name='Юлия', last_name='Соколов', patronymic='Иванович' WHERE id=2")
+        self.conn.commit()
+        grades_before = self.conn.execute('SELECT * FROM grades').fetchall()
+        self.assertEqual(repair_demo_data(self.conn), (2, 3))
+        self.assertEqual(self.conn.execute('SELECT last_name, patronymic FROM students WHERE id=1').fetchone(),
+                         ('Козлов', 'Алексеевич'))
+        self.assertEqual(self.conn.execute('SELECT last_name, patronymic FROM students WHERE id=2').fetchone(),
+                         ('Соколова', 'Ивановна'))
+        self.assertEqual(self.conn.execute('SELECT * FROM grades').fetchall(), grades_before)
+        self.assertEqual(repair_demo_data(self.conn), (0, 0))
+        self.assertEqual(self.conn.execute('PRAGMA foreign_key_check').fetchall(), [])
 
     def generation_state(self):
         with patch('requests.get'), contextlib.redirect_stdout(io.StringIO()):
@@ -140,6 +176,10 @@ class UniversityDatabaseTests(unittest.TestCase):
         examples = client.get('/api/examples').get_json()['examples']
         self.assertEqual(len(examples), 12)
         self.assertTrue(any('студент' in question for question in examples))
+        professors = client.post('/api/generate', json={
+            'question': 'Покажи преподавателей, которые работают на нескольких кафедрах'
+        }).get_json()
+        self.assertEqual(professors['result']['count'], 3, professors)
         queries = [
             'SELECT COUNT(*) AS count FROM students',
             "SELECT s.last_name FROM students s JOIN specializations sp ON s.specialization_id = sp.id JOIN departments d ON sp.department_id = d.id JOIN faculties f ON d.faculty_id = f.id WHERE f.short_name = 'ФИТ'",

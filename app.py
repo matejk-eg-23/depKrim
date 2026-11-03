@@ -6,6 +6,7 @@ import threading
 import os
 import json
 import re
+from contextlib import closing
 from datetime import datetime
 
 from flask import Flask, request, jsonify, render_template
@@ -33,6 +34,7 @@ BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 DB_PATH    = os.path.join(BASE_DIR, "university.db")
 HIST_PATH  = os.path.join(BASE_DIR, "history.json")
 FAV_PATH   = os.path.join(BASE_DIR, "favorites.json")
+PROMPTS_PATH = os.path.join(BASE_DIR, "prompts.json")
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 
@@ -269,6 +271,22 @@ def get_schema():
             if col[5]:
                 schema_text += " PRIMARY KEY"
             schema_text += "\n"
+        cursor.execute(f"PRAGMA foreign_key_list({table});")
+        for fk in cursor.fetchall():
+            schema_text += f"  FOREIGN KEY ({fk[3]}) REFERENCES {fk[2]}({fk[4]})\n"
+        # Только небольшие публичные справочники, без персональных данных.
+        reference_columns = {
+            "faculties": "id, name, short_name",
+            "departments": "id, faculty_id, name",
+            "specializations": "id, department_id, name",
+            "courses": "id, department_id, name",
+        }
+        if table in reference_columns:
+            values = cursor.execute(
+                f"SELECT {reference_columns[table]} FROM {table} ORDER BY id LIMIT 20"
+            ).fetchall()
+            schema_text += f"Reference values ({reference_columns[table]}): "
+            schema_text += json.dumps(values, ensure_ascii=False) + "\n"
         schema_text += "\n"
 
         schema_dict[table] = {
@@ -280,8 +298,40 @@ def get_schema():
     return schema_text, schema_dict
 
 # ── Генерация SQL ────────────────────────────────────────────────────────────
+def normalize_question(question):
+    return " ".join(re.findall(r"\w+", question.casefold().replace("ё", "е")))
+
+
+def check_generated_sql(sql):
+    """Проверяет ограничения и компилирует SQL без выполнения запроса."""
+    safe, reason = validate_sql(sql)
+    if not safe:
+        return False, reason
+    try:
+        from pathlib import Path
+        with closing(sqlite3.connect(Path(DB_PATH).resolve().as_uri() + "?mode=ro", uri=True)) as conn:
+            conn.execute("PRAGMA query_only = ON")
+            conn.execute("EXPLAIN " + sql)
+        return True, ""
+    except sqlite3.Error as exc:
+        return False, str(exc)
+
+
 def generate_sql(question):
     schema_text, _ = get_schema()
+    examples = load_json(PROMPTS_PATH)
+    normalized = normalize_question(question)
+    # Для известных вопросов используем проверенную пару, без случайного ответа LLM.
+    for example in examples:
+        if normalize_question(example["question"]) == normalized:
+            safe, _ = check_generated_sql(example["sql"])
+            if safe:
+                return {"sql": example["sql"], "error": None, "model": "проверенный шаблон"}
+
+    words = set(normalized.split())
+    ranked = sorted(examples, key=lambda ex: len(words & set(normalize_question(ex["question"]).split())), reverse=True)
+    relevant = [ex for ex in ranked if words & set(normalize_question(ex["question"]).split())][:3]
+    examples_text = "\n\n".join(f"Вопрос: {ex['question']}\nSQL: {ex['sql']}" for ex in relevant)
     model = get_model()
 
     prompt = f"""Ты эксперт SQLite. Напиши SQL-запрос по схеме базы и вопросу пользователя.
@@ -289,10 +339,16 @@ def generate_sql(question):
 СХЕМА БАЗЫ ДАННЫХ:
 {schema_text}
 
+ПРИМЕРЫ ДЛЯ ЭТОЙ СХЕМЫ:
+{examples_text}
+
 ПРАВИЛА (ОБЯЗАТЕЛЬНО):
 - Отвечай ТОЛЬКО чистым SQL кодом, без объяснений, без markdown, без ```.
 - Запрос должен начинаться с SELECT.
 - Используй правильные имена таблиц и колонок из схемы.
+- Соединяй таблицы только по указанным FOREIGN KEY; не пропускай промежуточные таблицы.
+- Студенты связаны с факультетами через students → specializations → departments → faculties.
+- Для фильтров используй значения из Reference values, не сокращай названия самостоятельно.
 - Для поиска по тексту используй LIKE '%текст%'.
 - Для дат используй формат YYYY-MM-DD.
 - Не придумывай несуществующие алиасы (OLD., NEW. и т.д.).
@@ -303,19 +359,25 @@ def generate_sql(question):
 SQL:"""
 
     try:
-        response = requests.post(
-            OLLAMA_URL,
-            json={"model": model, "prompt": prompt, "stream": False},
-            timeout=90,
-        )
-        response.raise_for_status()
-
-        sql = response.json().get("response", "").strip()
-        sql = re.sub(r"```(?:sql)?", "", sql, flags=re.IGNORECASE)
-        sql = sql.replace("```", "").strip()
-        sql = sql.split(";")[0].strip() + ";"
-
-        return {"sql": sql, "error": None, "model": model}
+        for attempt in range(2):
+            response = requests.post(
+                OLLAMA_URL,
+                json={"model": model, "prompt": prompt, "stream": False,
+                      "options": {"temperature": 0, "num_ctx": 8192}},
+                timeout=90,
+            )
+            response.raise_for_status()
+            sql = response.json().get("response", "").strip()
+            sql = re.sub(r"^```(?:sql)?\s*|\s*```$", "", sql, flags=re.IGNORECASE).strip()
+            safe, reason = validate_sql(sql)
+            if not safe:
+                return {"sql": "", "error": f"Модель предложила недопустимый SQL: {reason}", "model": model}
+            valid, reason = check_generated_sql(sql)
+            if valid:
+                return {"sql": sql, "error": None, "model": model}
+            if attempt == 0:
+                prompt += f"\n\nПредыдущий SQL:\n{sql}\nОшибка SQLite: {reason}\nИсправь запрос по схеме выше. Верни только SQL:"
+        return {"sql": "", "error": "Не удалось получить корректный SQL после повторной генерации. Уточните вопрос.", "model": model}
 
     except requests.exceptions.ConnectionError:
         return {"sql": "", "error": "Ollama не запущена. Выполни в терминале: ollama serve", "model": model}

@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+import json
 import runpy
 import sqlite3
 import tempfile
@@ -58,6 +59,68 @@ class UniversityDatabaseTests(unittest.TestCase):
 
     def test_database_path_is_relative_to_script(self):
         self.assertEqual(DATABASE['DB_PATH'], ROOT / 'university.db')
+
+    def generation_state(self):
+        with patch('requests.get'), contextlib.redirect_stdout(io.StringIO()):
+            module = runpy.run_path(str(ROOT / 'app.py'), run_name='verification')
+        state = module['index'].__globals__
+        state['DB_PATH'] = str(self.path)
+        state['HIST_PATH'] = str(self.path.parent / 'history.json')
+        state['FAV_PATH'] = str(self.path.parent / 'favorites.json')
+        return state
+
+    def test_all_suggested_questions_use_valid_templates(self):
+        state = self.generation_state()
+        client = state['app'].test_client()
+        for question in client.get('/api/examples').get_json()['examples']:
+            with self.subTest(question=question), patch('requests.post') as post:
+                result = state['generate_sql'](question)
+                self.assertIsNone(result['error'], result)
+                self.assertEqual(result['model'], 'проверенный шаблон')
+                post.assert_not_called()
+        with patch('requests.post') as post:
+            result = client.post('/api/generate', json={
+                'question': '  ПОКАЖИ всех студентов факультета информационных технологий?! '
+            }).get_json()
+            self.assertEqual(result['result']['count'], 20, result)
+            post.assert_not_called()
+
+    def test_all_templates_compile_and_execute(self):
+        state = self.generation_state()
+        examples = json.loads((ROOT / 'prompts.json').read_text(encoding='utf-8'))
+        for example in examples:
+            with self.subTest(question=example['question']):
+                self.assertEqual(state['check_generated_sql'](example['sql']), (True, ''))
+                self.conn.execute(example['sql']).fetchall()
+
+    def test_model_receives_relationships_values_and_repairs_invalid_column(self):
+        state = self.generation_state()
+        with patch.dict(state, {'get_model': lambda: 'test-model'}), patch('requests.post') as post:
+            post.return_value.json.side_effect = [
+                {'response': 'SELECT nonexistent FROM students;'},
+                {'response': '```sql\nSELECT COUNT(*) FROM students;\n```'},
+            ]
+            result = state['generate_sql']('Сосчитай общее число студентов университета')
+            self.assertIsNone(result['error'], result)
+            self.assertEqual(post.call_count, 2)
+            first = post.call_args_list[0].kwargs['json']
+            self.assertIn('FOREIGN KEY (department_id) REFERENCES departments(id)', first['prompt'])
+            self.assertIn('Факультет информационных технологий', first['prompt'])
+            self.assertEqual(first['options']['temperature'], 0)
+            self.assertIn('no such column', post.call_args_list[1].kwargs['json']['prompt'])
+
+    def test_invalid_or_destructive_model_sql_is_not_executed(self):
+        state = self.generation_state()
+        before = list(self.conn.iterdump())
+        with patch.dict(state, {'get_model': lambda: 'test-model'}), patch('requests.post') as post:
+            post.return_value.json.return_value = {'response': 'DROP TABLE students;'}
+            self.assertIsNotNone(state['generate_sql']('Удали учебные записи')['error'])
+            self.assertEqual(post.call_count, 1)
+        with patch.dict(state, {'get_model': lambda: 'test-model'}), patch('requests.post') as post:
+            post.return_value.json.return_value = {'response': 'SELECT nonexistent FROM students;'}
+            self.assertIsNotNone(state['generate_sql']('Сосчитай все учебные записи')['error'])
+            self.assertEqual(post.call_count, 2)
+        self.assertEqual(list(self.conn.iterdump()), before)
 
     def test_application_reads_university_schema_and_join_queries(self):
         with patch('requests.get'), contextlib.redirect_stdout(io.StringIO()):

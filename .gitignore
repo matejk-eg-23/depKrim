@@ -1,0 +1,22 @@
+# Python and virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Local databases and SQLite sidecar files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# User data and local configuration
+/history.json
+/favorites.json
+/audit.json
+/connections.json
+.env
+.env.*
+!.env.example
+/.local-backups/

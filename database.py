@@ -2,9 +2,10 @@
 
 import sqlite3
 import random
+from pathlib import Path
 from datetime import datetime, timedelta
 
-DB_PATH = "shop.db"
+DB_PATH = Path(__file__).resolve().parent / "shop.db"
 
 
 def create_tables(conn):

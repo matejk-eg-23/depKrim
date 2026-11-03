@@ -1,21 +1,12 @@
 # app.py — запуск: python app.py
 
 import subprocess
-import sys
 import webbrowser
 import threading
 import os
 import json
 import re
 from datetime import datetime
-
-required_libs = ["flask", "requests"]
-for lib in required_libs:
-    try:
-        __import__(lib)
-    except ImportError:
-        print(f"Устанавливаю {lib}...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", lib])
 
 from flask import Flask, request, jsonify, render_template
 import sqlite3

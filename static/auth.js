@@ -1,5 +1,6 @@
 let currentUser = null;
 let csrfToken = '';
+let activeDatabaseRequests = 0;
 const roleNames = {guest: 'Гость', analyst: 'Аналитик', operator: 'Оператор', admin: 'Администратор'};
 
 function showAuthScreen(id) {
@@ -23,12 +24,19 @@ function showAuthScreen(id) {
     }
     document.getElementById('adminDialog').close();
     document.getElementById('auditDialog').close();
+    document.getElementById('connectionsDialog').close();
+    document.getElementById('connectionForm').reset();
+    document.getElementById('connectionsList').replaceChildren();
 }
 
 async function apiFetch(url, options = {}) {
     const headers = new Headers(options.headers || {});
     if (!['GET', 'HEAD'].includes((options.method || 'GET').toUpperCase())) headers.set('X-CSRF-Token', csrfToken);
-    const response = await fetch(url, {...options, headers});
+    const databaseRequest = ['/api/generate', '/api/execute'].includes(url);
+    if (databaseRequest) activeDatabaseRequests++;
+    let response;
+    try { response = await fetch(url, {...options, headers}); }
+    finally { if (databaseRequest) activeDatabaseRequests--; }
     if (response.status === 401 && url !== '/api/auth/login') {
         currentUser = null;
         showAuthScreen('loginScreen');
@@ -52,6 +60,7 @@ function showMainApp() {
     document.getElementById('currentUserName').textContent = `${currentUser.display_name} · ${currentUser.role_name}`;
     document.getElementById('adminButton').classList.toggle('hidden', !(currentUser.permissions & 8));
     document.getElementById('auditButton').classList.toggle('hidden', currentUser.role !== 'admin');
+    document.getElementById('connectionsButton').classList.toggle('hidden', !(currentUser.permissions & 16));
     loadSchema();
     loadExamples();
 }
@@ -200,9 +209,13 @@ document.addEventListener('DOMContentLoaded', checkAuth);
 
 let auditPage = 1;
 const auditActionNames = {login: 'Вход', logout: 'Выход', password_change: 'Смена пароля',
+    connection_add: 'Добавление базы', connection_activate: 'Выбор базы', connection_delete: 'Удаление подключения',
     sql_generate: 'Генерация SQL', sql_preview: 'Пробный запуск', sql_execute: 'Выполнение SQL',
     export: 'Экспорт', user_create: 'Создание пользователя', user_role_change: 'Изменение роли', user_delete: 'Удаление пользователя'};
 const auditOutcomes = {success: 'Успешно', error: 'Ошибка', blocked: 'Заблокировано', preview: 'Откат', committed: 'Сохранено'};
+for (const action of ['connection_add', 'connection_activate', 'connection_delete']) {
+    document.getElementById('auditAction').add(new Option(auditActionNames[action], action));
+}
 
 async function loadAudit(page = 1) {
     const query = new URLSearchParams({page, limit: 50});

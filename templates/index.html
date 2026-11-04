@@ -55,7 +55,7 @@
             </div>
             
             <div class="tab-panel active" id="structurePanel">
-                <div class="section-label">ГрГУ · таблицы</div>
+                <div class="section-label" id="schemaLabel">ГрГУ · таблицы</div>
                 <div id="schemaTree" class="schema-loading">Загрузка…</div>
             </div>
             
@@ -74,6 +74,7 @@
             <div class="account-actions">
                 <button id="adminButton" class="btn-sm hidden" onclick="showAdminPanel()">Управление пользователями</button>
                 <button id="auditButton" class="btn-sm hidden" onclick="showAuditPanel()">Журнал действий</button>
+                <button id="connectionsButton" class="btn-sm hidden" onclick="showConnections()">Подключения к базам</button>
                 <button class="btn-sm" onclick="showPasswordScreen()">Сменить пароль</button>
                 <button class="btn-sm" onclick="handleLogout()">Выйти</button>
             </div>
@@ -81,7 +82,7 @@
         
         <main class="main">
             <div class="input-zone">
-                <div class="university-context"><strong>{{ university }}</strong><span>Учебная база · Студенты, преподаватели и оценки вымышлены</span></div>
+                <div class="university-context"><strong id="databaseName">{{ university }}</strong><span id="databaseNote">Учебная база · Студенты, преподаватели и оценки вымышлены</span></div>
                 <div class="input-row">
                     <textarea id="questionInput" placeholder="Например: покажи студентов специальности Кибербезопасность..."></textarea>
                     <button id="sendBtn" class="btn-send" onclick="handleSend()">Сгенерировать SQL</button>
@@ -139,6 +140,28 @@
         <div class="table-wrap"><table><thead><tr><th>Время</th><th>Пользователь</th><th>Действие</th><th>Результат</th><th>Подробности</th><th>IP</th></tr></thead><tbody id="auditBody"></tbody></table></div>
         <div class="audit-pagination"><button class="btn-sm" id="auditPrevious" type="button">Назад</button><span id="auditPageInfo" role="status"></span><button class="btn-sm" id="auditNext" type="button">Далее</button></div>
     </dialog>
+    <dialog id="connectionsDialog" class="admin-dialog">
+        <div class="admin-heading"><div><div class="auth-eyebrow">ИСТОЧНИК ДАННЫХ</div><h2>Подключения к базам</h2></div><button class="btn-sm" onclick="document.getElementById('connectionsDialog').close()">Закрыть</button></div>
+        <p>Внешние базы доступны только для чтения. Учебная база ГрГУ сохраняет режим пробного запуска и подтверждения изменений. Подключения видны только создавшему их администратору.</p>
+        <div id="connectionsList" class="connections-list"></div>
+        <h3>Новое подключение</h3>
+        <form id="connectionForm" class="connection-form">
+            <label>Название<input id="connectionName" required maxlength="80" placeholder="Например: библиотека"></label>
+            <label>СУБД<select id="connectionKind"><option value="sqlite">SQLite</option><option value="postgresql">PostgreSQL</option><option value="mysql">MySQL 8+</option></select></label>
+            <label><span id="connectionDatabaseLabel">Абсолютный путь к файлу на сервере</span><input id="connectionDatabase" required maxlength="1000"></label>
+            <div id="connectionServerFields" class="connection-server hidden">
+                <label>Сервер<input id="connectionHost" maxlength="255" placeholder="localhost" autocomplete="off"></label>
+                <label>Порт<input id="connectionPort" type="number" min="1" max="65535" value="5432"></label>
+                <label>Пользователь БД<input id="connectionUsername" maxlength="255" autocomplete="off"></label>
+                <label>Пароль БД<input id="connectionPassword" type="password" maxlength="1024" autocomplete="off"></label>
+            </div>
+            <p class="auth-note">Проверка доступа выполняется перед сохранением. Для серверной базы используйте отдельную учётную запись с правом SELECT.</p>
+            <button class="auth-submit" type="submit">Проверить и сохранить</button>
+        </form>
+        <p class="form-error" id="connectionError" role="alert"></p>
+        <p id="connectionStatus" role="status"></p>
+    </dialog>
+    <script src="{{ url_for('static', filename='connections.js') }}"></script>
     <script src="{{ url_for('static', filename='auth.js') }}"></script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 <!-- Modal для просмотра SQL -->

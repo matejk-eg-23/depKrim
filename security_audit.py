@@ -36,6 +36,8 @@ def sha256(value):
 
 
 def issue_preview(sql, fingerprint):
+    from external_connections import connection_key
+    sql = connection_key() + '\n' + sql
     token = secrets.token_urlsafe(32)
     user = g.current_user
     with closing(connect_users()) as conn, conn:
@@ -47,6 +49,8 @@ def issue_preview(sql, fingerprint):
 
 
 def consume_preview(token, sql):
+    from external_connections import connection_key
+    sql = connection_key() + '\n' + sql
     if not isinstance(token, str) or len(token) > 100:
         return None
     user = g.current_user
@@ -109,6 +113,12 @@ def register_security(app):
                      '/api/export': 'export', '/api/admin/users': 'user_create'}.get(path)
         if path.startswith('/api/admin/users/') and request.method in ('PATCH', 'DELETE'):
             event = 'user_role_change' if request.method == 'PATCH' else 'user_delete'
+        if path == '/api/connections' and request.method == 'POST':
+            event = 'connection_add'
+        if path == '/api/connections/activate' and request.method == 'POST':
+            event = 'connection_activate'
+        if path.startswith('/api/connections/') and request.method == 'DELETE':
+            event = 'connection_delete'
         if not event:
             return response
         data = request.get_json(silent=True)
@@ -123,6 +133,10 @@ def register_security(app):
         if event == 'sql_generate' and output.get('sql') and not output.get('error'):
             events.append('sql_preview' if result.get('sandbox') else 'sql_execute')
         details = {'status': response.status_code}
+        if event.startswith('connection_'):
+            # Только идентификатор: реквизиты подключения в аудит не записываются.
+            details['connection_id'] = (output.get('connection', {}).get('id') if event == 'connection_add'
+                                        else data.get('id') if event == 'connection_activate' else path.rsplit('/', 1)[-1])
         for key, limit in (('question', 500), ('sql', 2000), ('format', 10), ('role', 20)):
             value = output.get(key, data.get(key))
             if isinstance(value, str):

@@ -21,6 +21,7 @@ def configure_test_auth(app, directory):
     app.config.update(TESTING=True, RATE_LIMIT_ENABLED=False, SECRET_KEY='test-key-' * 8,
                       USERS_DB_PATH=str(directory / 'app_users.db'),
                       SESSION_KEY_PATH=str(directory / '.session-key'),
+                      CONNECTIONS_KEY_PATH=str(directory / '.connections-key'),
                       INITIAL_PASSWORD_PATH=str(directory / '.initial-admin-password'),
                       INITIAL_ADMIN_PASSWORD=INITIAL_PASSWORD)
     app.test_client_class = CSRFClient

@@ -9,6 +9,12 @@ async function loadSchema() {
             return;
         }
         renderSchema(data.schema);
+        document.getElementById('schemaLabel').textContent = data.connection ? `${data.connection.name} · таблицы` : 'ГрГУ · таблицы';
+        document.getElementById('databaseName').textContent = data.connection ? data.connection.name : 'ГрГУ имени Янки Купалы';
+        document.getElementById('databaseNote').textContent = data.connection ? `${data.connection.kind} · Только чтение` : 'Учебная база · Студенты, преподаватели и оценки вымышлены';
+        document.getElementById('questionInput').placeholder = data.connection ? 'Задайте вопрос по таблицам подключённой базы…' : 'Например: покажи студентов специальности Кибербезопасность...';
+        const emptyText = document.querySelector('#emptyState p');
+        if (emptyText) emptyText.textContent = data.connection ? `Задайте вопрос к базе «${data.connection.name}»` : 'Задайте вопрос к учебной базе ГрГУ имени Янки Купалы';
     } catch {
         document.getElementById("schemaTree").innerHTML =
             '<div class="schema-error">Сервер недоступен</div>';
@@ -244,6 +250,7 @@ async function loadExamples() {
         const res = await apiFetch("/api/examples");
         const data = await res.json();
         const dropdown = document.getElementById("examplesDropdown");
+        document.getElementById('examplesBtn').classList.toggle('hidden', !data.examples?.length);
         dropdown.innerHTML = data.examples.map(ex =>
             `<button class="example-btn" onclick="useExample('${ex.replace(/'/g, "\\'")}')">${ex}</button>`
         ).join("");

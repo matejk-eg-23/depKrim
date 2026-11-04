@@ -361,3 +361,11 @@ tr:hover td { background: var(--bg); }
 }
 .security-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
 .dot-warn { background: #e09000; }
+/* Подключения к внешним базам */
+.connections-list { display: grid; gap: 10px; margin: 20px 0; }
+.connection-row { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid #dedbd4; border-radius: 8px; }
+.connection-row span { flex: 1; overflow-wrap: anywhere; }
+.connection-form, .connection-server { display: grid; gap: 12px; }
+.connection-form label { display: grid; gap: 5px; }
+.connection-form input, .connection-form select { padding: 10px; border: 1px solid #ccc; border-radius: 6px; width: 100%; box-sizing: border-box; }
+.connection-server { grid-template-columns: 2fr 1fr; }

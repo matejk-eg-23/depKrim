@@ -19,6 +19,8 @@ import requests
 from sql_security import inspect_sql, run_statement
 from security_audit import register_security, issue_preview, consume_preview
 from database import CATALOG
+from external_connections import (register_connections, active_connection, connection_key,
+                                  external_schema, run_external, safe_connection, ConnectionUnavailable)
 
 def start_ollama():
     try:
@@ -36,6 +38,7 @@ app = Flask(__name__,
             static_folder='static')
 register_auth(app)
 register_security(app)
+register_connections(app)
 data_lock = threading.RLock()
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -104,6 +107,12 @@ def get_model():
 
 # ── Схема БД ────────────────────────────────────────────────────────────────
 def get_schema(question=''):
+    external = active_connection()
+    if external:
+        try:
+            return external_schema(external)
+        except Exception:
+            raise ConnectionUnavailable('Не удалось прочитать схему внешней базы. Проверьте подключение и ключ шифрования.') from None
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
@@ -169,6 +178,10 @@ def can_view_confidential():
 
 
 def check_generated_sql(sql):
+    external = active_connection()
+    if external:
+        result = run_external(external, sql, explain=True)
+        return not (result.get('error') or result.get('security_blocked')), result.get('error', result.get('message', ''))
     result = run_statement(DB_PATH, sql, allow_write=can_modify_sql(),
                            confidential=can_view_confidential(), explain=True,
                            timeout=app.config['SQL_TIMEOUT_SECONDS'])
@@ -177,7 +190,8 @@ def check_generated_sql(sql):
 
 def generate_sql(question):
     schema_text, _ = get_schema(question)
-    examples = load_json(PROMPTS_PATH)
+    external = active_connection()
+    examples = [] if external else load_json(PROMPTS_PATH)
     normalized = normalize_question(question)
     # Для известных вопросов используем проверенную пару, без случайного ответа LLM.
     for example in examples:
@@ -224,6 +238,18 @@ def generate_sql(question):
 
 SQL:"""
 
+    if external:
+        dialect = {'sqlite': 'SQLite', 'postgresql': 'PostgreSQL', 'mysql': 'MySQL'}[external['kind']]
+        prompt = f"""Ты эксперт {dialect}. Напиши один запрос SELECT по вопросу пользователя.
+Верни только корректный SQL для {dialect}, без Markdown и объяснений.
+Разрешено только чтение. Используй только перечисленные таблицы, поля и связи FOREIGN KEY.
+Не предполагай, что база университетская. Не придумывай значения справочников.
+Используй стандартные агрегаты COUNT, SUM, AVG, MIN, MAX. Ограничь результат LIMIT 100.
+СХЕМА БАЗЫ:
+{schema_text}
+Вопрос: {question}
+SQL:"""
+
     try:
         for attempt in range(2):
             response = requests.post(
@@ -242,7 +268,7 @@ SQL:"""
             if valid:
                 return {"sql": sql, "error": None, "model": model}
             if attempt == 0:
-                prompt += f"\n\nПредыдущий SQL:\n{sql}\nОшибка SQLite: {reason}\nИсправь запрос по схеме выше. Верни только SQL:"
+                prompt += f"\n\nПредыдущий SQL:\n{sql}\nОшибка SQL: {reason}\nИсправь запрос по схеме выше. Верни только SQL:"
         return {"sql": "", "error": "Не удалось получить корректный SQL после повторной генерации. Уточните вопрос.", "model": model}
 
     except requests.exceptions.ConnectionError:
@@ -254,6 +280,14 @@ SQL:"""
 
 # ── Выполнение SQL ───────────────────────────────────────────────────────────
 def execute_sql(sql, confirmation_token=None):
+    external = active_connection()
+    if external:
+        if confirmation_token is not None:
+            return {'error': 'Подтверждение относится к другой базе. Внешние подключения доступны только для чтения.', 'status': 409}
+        try:
+            return run_external(external, sql)
+        except Exception:
+            return {'error': 'Не удалось открыть внешнюю базу. Проверьте подключение и ключ шифрования.', 'status': 503}
     expected = None
     if confirmation_token is not None:
         if not can_modify_sql():
@@ -293,6 +327,7 @@ def add_to_history(question, sql, count, success, blocked=False):
         history.insert(0, {
         "id":       uuid.uuid4().hex,
         "user_id": g.current_user['id'],
+        "connection_key": connection_key(),
         "question": question,
         "sql":      sql,
         "count":    count,
@@ -312,10 +347,13 @@ def index():
 @app.route("/api/schema")
 def schema():
     try:
-        if not os.path.exists(DB_PATH):
+        if not active_connection() and not os.path.exists(DB_PATH):
             return jsonify({"error": "База данных не найдена. Запусти: python database.py"}), 500
         _, d = get_schema()
-        return jsonify({"schema": d})
+        external = active_connection()
+        return jsonify({"schema": d, 'connection': safe_connection(external) if external else None})
+    except ConnectionUnavailable:
+        raise
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -382,12 +420,12 @@ def execute():
 
 @app.route("/api/examples")
 def examples():
-    return jsonify({'examples': [item['question'] for item in load_json(PROMPTS_PATH) if item.get('show_in_menu')]})
+    return jsonify({'examples': [] if active_connection() else [item['question'] for item in load_json(PROMPTS_PATH) if item.get('show_in_menu')]})
 
 # ── История (API) ────────────────────────────────────────────────────────────
 @app.route("/api/history")
 def history():
-    return jsonify({"history": [item for item in load_json(HIST_PATH) if item.get('user_id') == g.current_user['id']]})
+    return jsonify({"history": [item for item in load_json(HIST_PATH) if item.get('user_id') == g.current_user['id'] and item.get('connection_key', 'local') == connection_key()]})
 
 @app.route("/api/history/remove", methods=["POST"])
 def history_remove():
@@ -406,13 +444,13 @@ def history_remove():
 @app.route("/api/history/clear", methods=["POST"])
 def history_clear():
     with data_lock:
-        save_json(HIST_PATH, [h for h in load_json(HIST_PATH) if h.get('user_id') != g.current_user['id']])
+        save_json(HIST_PATH, [h for h in load_json(HIST_PATH) if h.get('user_id') != g.current_user['id'] or h.get('connection_key', 'local') != connection_key()])
     return jsonify({"ok": True})
 
 # ── Избранное (API) ──────────────────────────────────────────────────────────
 @app.route("/api/favorites")
 def favorites():
-    return jsonify({"favorites": [item for item in load_json(FAV_PATH) if item.get('user_id') == g.current_user['id']]})
+    return jsonify({"favorites": [item for item in load_json(FAV_PATH) if item.get('user_id') == g.current_user['id'] and item.get('connection_key', 'local') == connection_key()]})
 
 @app.route("/api/favorites/add", methods=["POST"])
 def favorites_add():
@@ -420,6 +458,7 @@ def favorites_add():
     item = {
         "id":       uuid.uuid4().hex,
         "user_id": g.current_user['id'],
+        "connection_key": connection_key(),
         "question": data.get("question", ""),
         "sql":      data.get("sql", ""),
         "time":     datetime.now().strftime("%d.%m.%Y %H:%M"),

@@ -22,3 +22,4 @@ venv/
 /.local-backups/
 /.session-key
 /.initial-admin-password
+/.connections-key

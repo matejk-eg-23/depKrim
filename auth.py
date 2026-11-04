@@ -17,6 +17,7 @@ PERM_READ = 1
 PERM_DANGEROUS_SQL = 2
 PERM_EXPORT = 4
 PERM_MANAGE_USERS = 8
+PERM_EXTERNAL_DB = 16
 PERM_VIEW_CONFIDENTIAL = 64
 ROLES = {'guest': 1, 'analyst': 5, 'operator': 7, 'admin': 127}
 ROLE_NAMES = {'guest': 'Гость', 'analyst': 'Аналитик', 'operator': 'Оператор', 'admin': 'Администратор'}
@@ -69,6 +70,8 @@ def initialize_auth(app):
             )''')
             from security_audit import initialize_security_tables
             initialize_security_tables(conn)
+            from external_connections import initialize_connections
+            initialize_connections(conn)
             if conn.execute('SELECT COUNT(*) FROM app_users').fetchone()[0] == 0:
                 password = app.config.get('INITIAL_ADMIN_PASSWORD') or secrets.token_urlsafe(16) + 'aA1!'
                 reason = validate_password(password, 'admin')
@@ -247,6 +250,7 @@ def edit_user(user_id):
             if conn.execute("SELECT COUNT(*) FROM app_users WHERE role='admin'").fetchone()[0] <= 1:
                 return jsonify(error='Нельзя удалить последнего администратора или понизить его роль'), 400
         if request.method == 'DELETE':
+            conn.execute('DELETE FROM external_connections WHERE user_id=?', (user_id,))
             conn.execute('DELETE FROM app_users WHERE id=?', (user_id,))
         else:
             role = new_role

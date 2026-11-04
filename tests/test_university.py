@@ -21,7 +21,7 @@ class UniversityDatabaseTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
-        self.path = Path(self.temporary.name) / 'university.db'
+        self.path = Path(self.temporary.name) / 'grsu.db'
         self.conn = sqlite3.connect(self.path)
         self.addCleanup(self.conn.close)
         with contextlib.redirect_stdout(io.StringIO()):

@@ -23,7 +23,7 @@ class AuthTests(unittest.TestCase):
         self.state = runpy.run_path(str(ROOT / 'app.py'), run_name='verification')['index'].__globals__
         self.app = self.state['app']
         configure_test_auth(self.app, self.directory)
-        for name, filename in [('DB_PATH', 'university.db'), ('HIST_PATH', 'history.json'), ('FAV_PATH', 'favorites.json')]:
+        for name, filename in [('DB_PATH', 'grsu.db'), ('HIST_PATH', 'history.json'), ('FAV_PATH', 'favorites.json')]:
             self.state[name] = str(self.directory / filename)
         database = runpy.run_path(str(ROOT / 'database.py'))
         with contextlib.closing(sqlite3.connect(self.state['DB_PATH'])) as conn:

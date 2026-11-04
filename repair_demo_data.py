@@ -38,7 +38,7 @@ if __name__ == '__main__':
         conn.execute('PRAGMA foreign_keys = ON')
         backup_dir = DB_PATH.parent / '.local-backups'
         backup_dir.mkdir(exist_ok=True)
-        backup_path = backup_dir / f'university-before-data-fix-{datetime.now():%Y%m%d-%H%M%S-%f}.db'
+        backup_path = backup_dir / f'grsu-before-data-fix-{datetime.now():%Y%m%d-%H%M%S-%f}.db'
         with closing(sqlite3.connect(backup_path)) as backup:
             conn.backup(backup)
         students, departments = repair_demo_data(conn)

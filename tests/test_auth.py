@@ -88,7 +88,7 @@ class AuthTests(unittest.TestCase):
             self.assertFalse(any(table.startswith('conf_') for table in schema))
             self.assertEqual(client.get('/api/admin/users').status_code, 403)
             self.assertEqual(client.post('/api/admin/users', json={}).status_code, 403)
-            self.assertEqual(client.post('/api/execute', json={'sql': 'SELECT COUNT(*) FROM students'}).get_json()['rows'], [[80]])
+            self.assertEqual(client.post('/api/execute', json={'sql': 'SELECT COUNT(*) FROM students'}).get_json()['rows'], [[260]])
             for sql in queries:
                 with self.subTest(role=role, sql=sql):
                     response = client.post('/api/execute', json={'sql': sql})
@@ -105,7 +105,7 @@ class AuthTests(unittest.TestCase):
             else:
                 self.assertTrue(response['readonly_blocked'], response)
         self.assertEqual(len(self.admin.get('/api/schema').get_json()['schema']), 18)
-        self.assertEqual(self.admin.post('/api/execute', json={'sql': 'SELECT COUNT(*) FROM conf_student_personal'}).get_json()['rows'], [[80]])
+        self.assertEqual(self.admin.post('/api/execute', json={'sql': 'SELECT COUNT(*) FROM conf_student_personal'}).get_json()['rows'], [[260]])
 
     def test_history_favorites_and_legacy_entries_are_isolated(self):
         self.create_user('alice')

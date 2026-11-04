@@ -1,0 +1,1007 @@
+{
+  "name": "Гродненский государственный университет имени Янки Купалы",
+  "short_name": "ГрГУ имени Янки Купалы",
+  "city": "Гродно",
+  "country": "Республика Беларусь",
+  "verified_on": "2026-11-04",
+  "sources": {
+    "faculties": "https://www.grsu.by/glavnaya/department.html",
+    "directory": "https://www.grsu.by/glavnaya/univer/telefonnyj-spravochnik.html",
+    "departments": "https://www.grsu.by/glavnaya/univer/pps.html",
+    "programs": "https://abit.grsu.by/view/1792-plan-nabora-v-2026-godu.html"
+  },
+  "notes": [
+    "Справочник: все 13 факультетов; названия подтверждены официальными страницами.",
+    "Кафедры сверены со справочником ППС и сайтами факультетов; перечень отражает доступные источники, а не нормативный реестр всех подразделений.",
+    "Военные учебные циклы выделены отдельным типом подразделения.",
+    "Специальности и варианты подготовки: план приема 2026; совпадение кода у профилизаций допустимо.",
+    "Кафедра, отвечающая за специальность, и срок обучения не назначаются без подтверждения.",
+    "Студенты, преподаватели, дисциплины, расписание, оценки, ставки, платежи и персональные реквизиты — искусственные учебные данные.",
+    "Сокращения факультетов используются как внутренние коды учебной базы. Не все из них являются официальными сокращениями."
+  ],
+  "faculties": [
+    {
+      "id": 1,
+      "name": "Факультет математики и информатики",
+      "short_name": "ФаМИ",
+      "dean_name": "Проневич Андрей Францевич",
+      "founded_year": null,
+      "url": "https://mf.grsu.by/"
+    },
+    {
+      "id": 2,
+      "name": "Факультет экономики и управления",
+      "short_name": "ФЭУ",
+      "dean_name": "Карпицкая Марина Евгеньевна",
+      "founded_year": null,
+      "url": "https://fem.grsu.by/"
+    },
+    {
+      "id": 3,
+      "name": "Юридический факультет",
+      "short_name": "ЮФ",
+      "dean_name": "Чебуранова Светлана Егоровна",
+      "founded_year": null,
+      "url": "https://lf.grsu.by/"
+    },
+    {
+      "id": 4,
+      "name": "Физико-технический факультет",
+      "short_name": "ФТФ",
+      "dean_name": "Воронцов Александр Сергеевич",
+      "founded_year": null,
+      "url": "https://ftf.grsu.by/"
+    },
+    {
+      "id": 5,
+      "name": "Инженерный факультет",
+      "short_name": "ИФ",
+      "dean_name": "Линник Дмитрий Александрович",
+      "founded_year": null,
+      "url": "https://ef.grsu.by/"
+    },
+    {
+      "id": 6,
+      "name": "Факультет биологии и экологии",
+      "short_name": "ФБЭ",
+      "dean_name": "Янчуревич Ольга Викторовна",
+      "founded_year": null,
+      "url": "https://fbe.grsu.by/"
+    },
+    {
+      "id": 7,
+      "name": "Факультет искусств и дизайна",
+      "short_name": "ФИД",
+      "dean_name": "Черниловская Людмила Осиповна",
+      "founded_year": null,
+      "url": "https://art.grsu.by/"
+    },
+    {
+      "id": 8,
+      "name": "Факультет истории, коммуникации и туризма",
+      "short_name": "ФИКиТ",
+      "dean_name": "Белозорович Виктор Александрович",
+      "founded_year": null,
+      "url": "https://fh.grsu.by/"
+    },
+    {
+      "id": 9,
+      "name": "Факультет психологии",
+      "short_name": "ФПс",
+      "dean_name": "Митрофанова Ольга Геннадьевна",
+      "founded_year": null,
+      "url": "https://psf.grsu.by/"
+    },
+    {
+      "id": 10,
+      "name": "Факультет физической культуры",
+      "short_name": "ФФК",
+      "dean_name": "Храмов Виталий Владимирович",
+      "founded_year": null,
+      "url": "https://ffc.grsu.by/"
+    },
+    {
+      "id": 11,
+      "name": "Филологический факультет",
+      "short_name": "ФилФ",
+      "dean_name": "Гончар Светлана Викторовна",
+      "founded_year": null,
+      "url": "https://phf.grsu.by/"
+    },
+    {
+      "id": 12,
+      "name": "Педагогический факультет",
+      "short_name": "ПФ",
+      "dean_name": "Гнездовский Юрий Юрьевич",
+      "founded_year": null,
+      "url": "https://fp.grsu.by/"
+    },
+    {
+      "id": 13,
+      "name": "Военный факультет",
+      "short_name": "ВФ",
+      "dean_name": "Песляк Геннадий Иванович",
+      "founded_year": null,
+      "url": "https://mil.grsu.by/"
+    }
+  ],
+  "departments": [
+    {
+      "id": 1,
+      "faculty_id": 1,
+      "name": "Кафедра математического анализа, дифференциальных уравнений и алгебры",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 2,
+      "faculty_id": 1,
+      "name": "Кафедра системного программирования и компьютерной безопасности",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 3,
+      "faculty_id": 1,
+      "name": "Кафедра современных технологий программирования",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 4,
+      "faculty_id": 1,
+      "name": "Кафедра фундаментальной и прикладной математики",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 5,
+      "faculty_id": 2,
+      "name": "Кафедра международного бизнеса и маркетинга",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 6,
+      "faculty_id": 2,
+      "name": "Кафедра экономики и управления на предприятии",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 7,
+      "faculty_id": 2,
+      "name": "Кафедра математического и информационного обеспечения экономических систем",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 8,
+      "faculty_id": 2,
+      "name": "Кафедра финансов и бухгалтерского учета",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 9,
+      "faculty_id": 3,
+      "name": "Кафедра гражданского права и процесса",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 10,
+      "faculty_id": 3,
+      "name": "Кафедра международного права",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 11,
+      "faculty_id": 3,
+      "name": "Кафедра теории и истории государства и права",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 12,
+      "faculty_id": 3,
+      "name": "Кафедра уголовного права, уголовного процесса и криминалистики",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 13,
+      "faculty_id": 4,
+      "name": "Кафедра общей физики",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 14,
+      "faculty_id": 4,
+      "name": "Кафедра теоретической физики и теплотехники",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 15,
+      "faculty_id": 4,
+      "name": "Кафедра информационных систем и технологий",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 16,
+      "faculty_id": 4,
+      "name": "Кафедра электротехники и электроники",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 17,
+      "faculty_id": 5,
+      "name": "Кафедра архитектуры и строительства",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 18,
+      "faculty_id": 5,
+      "name": "Кафедра логистики и методов управления",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 19,
+      "faculty_id": 5,
+      "name": "Кафедра машиноведения и технической эксплуатации автомобилей",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 20,
+      "faculty_id": 6,
+      "name": "Кафедра экологии",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 21,
+      "faculty_id": 6,
+      "name": "Кафедра системной биологии",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 22,
+      "faculty_id": 6,
+      "name": "Кафедра химии и биотехнологии",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 23,
+      "faculty_id": 6,
+      "name": "Кафедра биохимии",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 24,
+      "faculty_id": 6,
+      "name": "Кафедра технологии, физиологии и гигиены питания",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 25,
+      "faculty_id": 7,
+      "name": "Кафедра изобразительного искусства",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 26,
+      "faculty_id": 7,
+      "name": "Кафедра дизайна",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 27,
+      "faculty_id": 7,
+      "name": "Кафедра музыкального искусства",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 28,
+      "faculty_id": 8,
+      "name": "Кафедра истории Беларуси, археологии и специальных исторических дисциплин",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 29,
+      "faculty_id": 8,
+      "name": "Кафедра всеобщей и славянской истории",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 30,
+      "faculty_id": 8,
+      "name": "Кафедра политологии и социологии",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 31,
+      "faculty_id": 8,
+      "name": "Кафедра туризма и культурного наследия",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 32,
+      "faculty_id": 8,
+      "name": "Кафедра перевода и межкультурной коммуникации",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 33,
+      "faculty_id": 8,
+      "name": "Кафедра журналистики",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 34,
+      "faculty_id": 9,
+      "name": "Кафедра возрастной и педагогической психологии",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 35,
+      "faculty_id": 9,
+      "name": "Кафедра общей и социальной психологии",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 36,
+      "faculty_id": 9,
+      "name": "Кафедра экспериментальной и прикладной психологии",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 37,
+      "faculty_id": 10,
+      "name": "Кафедра спортивных дисциплин",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 38,
+      "faculty_id": 10,
+      "name": "Кафедра спортивных игр",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 39,
+      "faculty_id": 10,
+      "name": "Кафедра теории физической культуры и спортивной медицины",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 40,
+      "faculty_id": 10,
+      "name": "Кафедра физического воспитания и спорта",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 41,
+      "faculty_id": 11,
+      "name": "Кафедра английской филологии",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 42,
+      "faculty_id": 11,
+      "name": "Кафедра белорусской филологии",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 43,
+      "faculty_id": 11,
+      "name": "Кафедра иностранных языков",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 44,
+      "faculty_id": 11,
+      "name": "Кафедра романо-германской филологии",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 45,
+      "faculty_id": 11,
+      "name": "Кафедра русской филологии",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 46,
+      "faculty_id": 12,
+      "name": "Кафедра естественнонаучных и лингвистических дисциплин и методик их преподавания",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 47,
+      "faculty_id": 12,
+      "name": "Кафедра педагогики и социальной работы",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 48,
+      "faculty_id": 12,
+      "name": "Кафедра теории и методики специального образования",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 49,
+      "faculty_id": 12,
+      "name": "Кафедра философии",
+      "unit_type": "кафедра"
+    },
+    {
+      "id": 50,
+      "faculty_id": 13,
+      "name": "Цикл обеспечения вещевым имуществом",
+      "unit_type": "цикл"
+    },
+    {
+      "id": 51,
+      "faculty_id": 13,
+      "name": "Цикл обеспечения горючим и смазочными материалами",
+      "unit_type": "цикл"
+    },
+    {
+      "id": 52,
+      "faculty_id": 13,
+      "name": "Цикл обеспечения продовольствием",
+      "unit_type": "цикл"
+    }
+  ],
+  "specializations": [
+    {
+      "id": 1,
+      "faculty_id": 1,
+      "department_id": null,
+      "code": "6-05-0414-04",
+      "name": "Управление информационными ресурсами",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 2,
+      "faculty_id": 1,
+      "department_id": null,
+      "code": "6-05-0533-06",
+      "name": "Математика",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 3,
+      "faculty_id": 1,
+      "department_id": null,
+      "code": "6-05-0533-09",
+      "name": "Прикладная математика",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 4,
+      "faculty_id": 1,
+      "department_id": null,
+      "code": "6-05-0533-12",
+      "name": "Кибербезопасность",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 5,
+      "faculty_id": 1,
+      "department_id": null,
+      "code": "6-05-0611-03",
+      "name": "Искусственный интеллект",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 6,
+      "faculty_id": 1,
+      "department_id": null,
+      "code": "6-05-0612-01",
+      "name": "Программная инженерия",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 7,
+      "faculty_id": 2,
+      "department_id": null,
+      "code": "6-05-0311-02",
+      "name": "Экономика и управление",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 8,
+      "faculty_id": 2,
+      "department_id": null,
+      "code": "6-05-0311-03",
+      "name": "Мировая экономика",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 9,
+      "faculty_id": 2,
+      "department_id": null,
+      "code": "6-05-0411-02",
+      "name": "Финансы и кредит",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 10,
+      "faculty_id": 2,
+      "department_id": null,
+      "code": "6-05-0412-01",
+      "name": "Менеджмент",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 11,
+      "faculty_id": 2,
+      "department_id": null,
+      "code": "6-05-0611-01",
+      "name": "Информационные системы и технологии",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 12,
+      "faculty_id": 2,
+      "department_id": null,
+      "code": "6-05-0611-04",
+      "name": "Электронная экономика",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 13,
+      "faculty_id": 3,
+      "department_id": null,
+      "code": "6-05-0421-01",
+      "name": "Правоведение",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 14,
+      "faculty_id": 3,
+      "department_id": null,
+      "code": "6-05-0421-02",
+      "name": "Международное право",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 15,
+      "faculty_id": 3,
+      "department_id": null,
+      "code": "6-05-0421-03",
+      "name": "Экономическое право",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 16,
+      "faculty_id": 3,
+      "department_id": null,
+      "code": "6-05-1036-01",
+      "name": "Таможенное дело",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 17,
+      "faculty_id": 4,
+      "department_id": null,
+      "code": "6-05-0533-01",
+      "name": "Физика",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 18,
+      "faculty_id": 4,
+      "department_id": null,
+      "code": "6-05-0533-04",
+      "name": "Компьютерная физика",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 19,
+      "faculty_id": 4,
+      "department_id": null,
+      "code": "6-05-0713-05",
+      "name": "Робототехнические системы",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 20,
+      "faculty_id": 4,
+      "department_id": null,
+      "code": "6-05-0716-03",
+      "name": "Информационно-измерительные приборы и системы",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 21,
+      "faculty_id": 4,
+      "department_id": null,
+      "code": "7-07-0712-01",
+      "name": "Электроэнергетика и электротехника",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 22,
+      "faculty_id": 5,
+      "department_id": null,
+      "code": "6-05-0714-02",
+      "name": "Технология машиностроения, металлорежущие станки и инструменты",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 23,
+      "faculty_id": 5,
+      "department_id": null,
+      "code": "6-05-0714-03",
+      "name": "Инженерно-техническое проектирование и производство материалов и изделий из них",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 24,
+      "faculty_id": 5,
+      "department_id": null,
+      "code": "6-05-0715-07",
+      "name": "Эксплуатация наземных транспортных и технологических машин и комплексов",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 25,
+      "faculty_id": 5,
+      "department_id": null,
+      "code": "6-05-1042-01",
+      "name": "Транспортная логистика",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 26,
+      "faculty_id": 5,
+      "department_id": null,
+      "code": "7-07-0731-01",
+      "name": "Архитектура",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 27,
+      "faculty_id": 5,
+      "department_id": null,
+      "code": "7-07-0732-01",
+      "name": "Строительство зданий и сооружений",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 28,
+      "faculty_id": 6,
+      "department_id": null,
+      "code": "6-05-0511-01",
+      "name": "Биология",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 29,
+      "faculty_id": 6,
+      "department_id": null,
+      "code": "6-05-0511-02",
+      "name": "Биохимия",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 30,
+      "faculty_id": 6,
+      "department_id": null,
+      "code": "6-05-0511-05",
+      "name": "Биоинженерия и биоинформатика",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 31,
+      "faculty_id": 6,
+      "department_id": null,
+      "code": "6-05-0521-01",
+      "name": "Экология",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 32,
+      "faculty_id": 6,
+      "department_id": null,
+      "code": "6-05-0721-03",
+      "name": "Производство продукции и организация общественного питания",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 33,
+      "faculty_id": 6,
+      "department_id": null,
+      "code": "7-07-0511-01",
+      "name": "Фундаментальная и прикладная биотехнология",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 34,
+      "faculty_id": 7,
+      "department_id": null,
+      "code": "6-05-0113-06",
+      "name": "Художественное образование",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 35,
+      "faculty_id": 7,
+      "department_id": null,
+      "code": "6-05-0113-07",
+      "name": "Музыкальное образование",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 36,
+      "faculty_id": 7,
+      "department_id": null,
+      "code": "6-05-0211-05",
+      "name": "Графический дизайн и мультимедиадизайн",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 37,
+      "faculty_id": 7,
+      "department_id": null,
+      "code": "6-05-0212-01",
+      "name": "Дизайн костюма и текстиля",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 38,
+      "faculty_id": 8,
+      "department_id": null,
+      "code": "6-05-0222-01",
+      "name": "История",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 39,
+      "faculty_id": 8,
+      "department_id": null,
+      "code": "6-05-0231-03",
+      "name": "Лингвистическое обеспечение межкультурной коммуникации",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 40,
+      "faculty_id": 8,
+      "department_id": null,
+      "code": "6-05-0314-01",
+      "name": "Социология",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 41,
+      "faculty_id": 8,
+      "department_id": null,
+      "code": "6-05-0321-01",
+      "name": "Журналистика",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 42,
+      "faculty_id": 8,
+      "department_id": null,
+      "code": "6-05-0321-02",
+      "name": "Информация и коммуникация",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 43,
+      "faculty_id": 8,
+      "department_id": null,
+      "code": "6-05-1013-01",
+      "name": "Туризм и гостеприимство",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 44,
+      "faculty_id": 9,
+      "department_id": null,
+      "code": "6-05-0114-01",
+      "name": "Социально-педагогическое и психологическое образование",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 45,
+      "faculty_id": 9,
+      "department_id": null,
+      "code": "6-05-0313-01",
+      "name": "Психология",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 46,
+      "faculty_id": 10,
+      "department_id": null,
+      "code": "6-05-0115-01",
+      "name": "Образование в области физической культуры",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 47,
+      "faculty_id": 10,
+      "department_id": null,
+      "code": "6-05-1012-02",
+      "name": "Тренерская деятельность (футбол, борьба вольная, борьба греко-римская)",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 48,
+      "faculty_id": 11,
+      "department_id": null,
+      "code": "6-05-0231-01",
+      "name": "Современные иностранные языки",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 49,
+      "faculty_id": 11,
+      "department_id": null,
+      "code": "6-05-0232-01",
+      "name": "Белорусская филология",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 50,
+      "faculty_id": 11,
+      "department_id": null,
+      "code": "6-05-0232-02",
+      "name": "Русская филология",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 51,
+      "faculty_id": 11,
+      "department_id": null,
+      "code": "6-05-0232-04",
+      "name": "Романо-германская филология (английская)",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 52,
+      "faculty_id": 11,
+      "department_id": null,
+      "code": "6-05-0232-04",
+      "name": "Романо-германская филология (немецкая)",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 53,
+      "faculty_id": 12,
+      "department_id": null,
+      "code": "6-05-0112-01",
+      "name": "Дошкольное образование",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 54,
+      "faculty_id": 12,
+      "department_id": null,
+      "code": "6-05-0112-02",
+      "name": "Начальное образование",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 55,
+      "faculty_id": 12,
+      "department_id": null,
+      "code": "7-07-0114-01",
+      "name": "Специальное и инклюзивное образование",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 56,
+      "faculty_id": 13,
+      "department_id": null,
+      "code": "6-05-1012-01",
+      "name": "Физическая культура (Физическая подготовка военнослужащих)",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 57,
+      "faculty_id": 13,
+      "department_id": null,
+      "code": "6-05-1031-02",
+      "name": "Тыловое обеспечение войск (продовольствием)",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 58,
+      "faculty_id": 13,
+      "department_id": null,
+      "code": "6-05-1031-02",
+      "name": "Тыловое обеспечение войск (вещевым имуществом)",
+      "degree_type": null,
+      "study_duration": null
+    },
+    {
+      "id": 59,
+      "faculty_id": 13,
+      "department_id": null,
+      "code": "6-05-1031-02",
+      "name": "Тыловое обеспечение войск (горюче-смазочными материалами)",
+      "degree_type": null,
+      "study_duration": null
+    }
+  ],
+  "dormitories": [
+    {
+      "id": 1,
+      "name": "Общежитие №1",
+      "address": "г. Гродно, ул. Социалистическая, 66"
+    },
+    {
+      "id": 2,
+      "name": "Общежитие №2",
+      "address": "г. Гродно, ул. Доватора, 27"
+    },
+    {
+      "id": 3,
+      "name": "Общежитие №3",
+      "address": "г. Гродно, бульвар Ленинского Комсомола, 3"
+    },
+    {
+      "id": 4,
+      "name": "Общежитие №4",
+      "address": "г. Гродно, ул. Пролетарская, 16"
+    },
+    {
+      "id": 5,
+      "name": "Общежитие №5",
+      "address": "г. Гродно, ул. Лиможа, 27/1"
+    },
+    {
+      "id": 6,
+      "name": "Общежитие №6",
+      "address": "г. Гродно, ул. Дубко, 20"
+    }
+  ]
+}

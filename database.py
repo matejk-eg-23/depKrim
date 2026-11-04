@@ -2,11 +2,15 @@
 # Запуск: python database.py
 
 import sqlite3
+import json
 from random import Random
 from pathlib import Path
 from datetime import datetime, timedelta
 
-DB_PATH = Path(__file__).resolve().parent / "university.db"
+DB_PATH = Path(__file__).resolve().parent / "grsu.db"
+CATALOG = json.loads((Path(__file__).resolve().parent / 'grsu_catalog.json').read_text(encoding='utf-8'))
+STUDENTS_PER_FACULTY = 20
+STUDENT_COUNT = STUDENTS_PER_FACULTY * len(CATALOG['faculties'])
 
 FEMALE_FIRST_NAMES = {"Мария", "Анна", "Ольга", "Екатерина", "Наталья", "Татьяна",
                       "Юлия", "Елена", "Виктория", "София", "Полина", "Алиса"}
@@ -23,7 +27,7 @@ PATRONYMIC_PAIRS = [
 # У каждого совместителя две кафедры по половине ставки.
 SECONDARY_DEPARTMENTS = [
     (10, "Елена", "Морозова", 2),
-    (11, "Дмитрий", "Петров", 7),
+    (11, "Дмитрий", "Петров", 10),
     (12, "Татьяна", "Соколова", 1),
 ]
 
@@ -55,27 +59,32 @@ def create_tables(conn):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             short_name TEXT NOT NULL,
-            dean_name TEXT NOT NULL,
-            founded_year INTEGER NOT NULL
+            dean_name TEXT,
+            founded_year INTEGER,
+            source_url TEXT
         );
 
         CREATE TABLE IF NOT EXISTS departments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             faculty_id INTEGER NOT NULL,
             name TEXT NOT NULL,
-            head_name TEXT NOT NULL,
+            head_name TEXT,
             room_number TEXT,
+            unit_type TEXT NOT NULL DEFAULT 'кафедра' CHECK(unit_type IN ('кафедра','цикл')),
             FOREIGN KEY (faculty_id) REFERENCES faculties(id)
         );
 
         CREATE TABLE IF NOT EXISTS specializations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            department_id INTEGER NOT NULL,
+            department_id INTEGER,
+            faculty_id INTEGER NOT NULL,
             name TEXT NOT NULL,
-            code TEXT NOT NULL UNIQUE,
-            degree_type TEXT NOT NULL,
-            study_duration INTEGER NOT NULL,
-            FOREIGN KEY (department_id) REFERENCES departments(id)
+            code TEXT NOT NULL,
+            degree_type TEXT,
+            study_duration INTEGER,
+            FOREIGN KEY (department_id) REFERENCES departments(id),
+            FOREIGN KEY (faculty_id) REFERENCES faculties(id),
+            UNIQUE(code, name)
         );
 
         CREATE TABLE IF NOT EXISTS professors (
@@ -161,7 +170,8 @@ def create_tables(conn):
             student_id INTEGER NOT NULL,
             course_id INTEGER NOT NULL,
             grade_type TEXT NOT NULL,
-            score INTEGER NOT NULL,
+            score INTEGER CHECK(score BETWEEN 1 AND 10),
+            assessment_result TEXT,
             grade_date TEXT NOT NULL,
             semester INTEGER NOT NULL,
             FOREIGN KEY (student_id) REFERENCES students(id),
@@ -184,7 +194,7 @@ def create_tables(conn):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             address TEXT NOT NULL,
-            capacity INTEGER NOT NULL
+            capacity INTEGER
         );
 
         CREATE TABLE IF NOT EXISTS dormitory_assignments (
@@ -200,15 +210,14 @@ def create_tables(conn):
 
         -- =====================================================
         -- СИНТЕТИЧЕСКИЕ КОНФИДЕНЦИАЛЬНЫЕ ДАННЫЕ
-        -- Ограничение доступа будет добавлено вместе с авторизацией.
+        -- Доступ предоставляется только администратору.
         -- =====================================================
 
         CREATE TABLE IF NOT EXISTS conf_student_personal (
             student_id INTEGER PRIMARY KEY,
             passport_series TEXT NOT NULL,
             passport_number TEXT NOT NULL,
-            snils TEXT NOT NULL,
-            inn TEXT,
+            personal_number TEXT NOT NULL,
             phone TEXT NOT NULL,
             email TEXT,
             registration_address TEXT NOT NULL,
@@ -224,6 +233,7 @@ def create_tables(conn):
             debt_amount REAL NOT NULL DEFAULT 0,
             scholarship_amount REAL NOT NULL DEFAULT 0,
             payment_status TEXT NOT NULL DEFAULT 'оплачено',
+            currency TEXT NOT NULL DEFAULT 'BYN',
             FOREIGN KEY (student_id) REFERENCES students(id)
         );
 
@@ -253,325 +263,152 @@ def create_tables(conn):
     print("[OK] Таблицы созданы")
 
 
+
+PROFESSORS = [('Александр', 'Иванов', 'Дмитриевич', 'к.т.н.', 'доцент', '2015-09-01'),
+ ('Кирилл', 'Смирнов', 'Андреевич', 'д.т.н.', 'профессор', '2010-03-15'),
+ ('Михаил', 'Козлов', 'Николаевич', 'д.ф.-м.н.', 'профессор', '2008-01-20'),
+ ('Анна', 'Лебедева', 'Романовна', 'к.э.н.', 'доцент', '2012-08-10'),
+ ('Павел', 'Новиков', 'Викторович', 'д.э.н.', 'профессор', '2005-04-01'),
+ ('Ольга', 'Сидорова', 'Леонидовна', 'д.ю.н.', 'профессор', '2002-09-01'),
+ ('Роман', 'Кузнецов', 'Григорьевич', 'к.ю.н.', 'доцент', '2018-01-15'),
+ ('Наталья', 'Попова', 'Дмитриевна', 'д.ф.-м.н.', 'профессор', '1999-09-01'),
+ ('Сергей', 'Васильев', 'Тимофеевич', 'к.ф.-м.н.', 'доцент', '2014-03-01'),
+ ('Елена', 'Морозова', 'Сергеевна', 'к.т.н.', 'старший преподаватель', '2019-09-01'),
+ ('Дмитрий', 'Петров', 'Ильич', 'к.ю.н.', 'доцент', '2016-02-01'),
+ ('Татьяна', 'Соколова', 'Александровна', 'д.т.н.', 'профессор', '2011-09-01')]
+
+CORE_COURSES = [(3, 'Базы данных', 'БД-101', 72, 'экзамен', 3),
+ (3, 'Программирование на Python', 'ПР-101', 108, 'экзамен', 1),
+ (4, 'Машинное обучение', 'МЛ-201', 90, 'экзамен', 5),
+ (4, 'Нейронные сети', 'НС-301', 72, 'зачет', 6),
+ (2, 'Криптография', 'КР-101', 72, 'экзамен', 3),
+ (2, 'Безопасность компьютерных сетей', 'БКС-201', 54, 'зачет', 5),
+ (6, 'Микроэкономика', 'МИК-101', 72, 'экзамен', 1),
+ (6, 'Макроэкономика', 'МАК-201', 72, 'экзамен', 2),
+ (5, 'Стратегический менеджмент', 'СМ-301', 54, 'зачет', 5),
+ (9, 'Гражданское право', 'ГП-101', 90, 'экзамен', 2),
+ (12, 'Уголовное право', 'УП-101', 90, 'экзамен', 2),
+ (12, 'Криминалистика', 'КРМ-201', 72, 'экзамен', 3),
+ (1, 'Математический анализ', 'МА-101', 144, 'экзамен', 1),
+ (1, 'Линейная алгебра', 'ЛА-101', 108, 'экзамен', 1),
+ (13, 'Общая физика', 'ОФ-101', 144, 'экзамен', 1),
+ (14, 'Квантовая механика', 'КМ-301', 72, 'экзамен', 5)]
+
+PREREQUISITES = [(3, 2), (4, 3), (5, 2), (6, 5), (8, 7), (16, 15)]
+
 def fill_data(conn):
-    """Заполняет пустую учебную БД; существующие данные не изменяет."""
-    cursor = conn.cursor()
-    tables = [row[0] for row in cursor.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-    ).fetchall()]
-    for table in tables:
-        quoted_name = table.replace('"', '""')
-        if cursor.execute(f'SELECT 1 FROM "{quoted_name}" LIMIT 1').fetchone():
-            print("[INFO] База уже содержит данные; заполнение пропущено")
+    """Создаёт учебные записи по официальному справочнику ГрГУ; заполненную БД не меняет."""
+    tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall()
+    for (table,) in tables:
+        quoted = '"' + table.replace('"', '""') + '"'
+        if conn.execute(f'SELECT 1 FROM {quoted} LIMIT 1').fetchone():
+            print('[INFO] База уже содержит данные; заполнение пропущено')
             return
-    # Повторяемый набор для демонстрации и проверки SQL-примеров.
     random = Random(42)
+    with conn:
+        for faculty in CATALOG['faculties']:
+            conn.execute('INSERT INTO faculties (id,name,short_name,dean_name,founded_year,source_url) VALUES (?,?,?,?,?,?)',
+                         (faculty['id'], faculty['name'], faculty['short_name'], faculty['dean_name'], faculty['founded_year'], CATALOG['sources']['directory']))
+        for unit in CATALOG['departments']:
+            conn.execute('INSERT INTO departments (id,faculty_id,name,unit_type) VALUES (?,?,?,?)',
+                         (unit['id'], unit['faculty_id'], unit['name'], unit['unit_type']))
+        for spec in CATALOG['specializations']:
+            conn.execute('INSERT INTO specializations (id,faculty_id,department_id,name,code,degree_type,study_duration) VALUES (?,?,?,?,?,?,?)',
+                         (spec['id'], spec['faculty_id'], spec['department_id'], spec['name'], spec['code'], spec['degree_type'], spec['study_duration']))
 
-    # ── Факультеты ──
-    faculties = [
-        ("Факультет информационных технологий", "ФИТ", "Проф. Соколов А.В.", 1998),
-        ("Факультет экономики и управления", "ФЭУ", "Проф. Волкова Е.П.", 1965),
-        ("Юридический факультет", "ЮФ", "Проф. Петров И.М.", 1954),
-        ("Факультет естественных наук", "ФЕН", "Проф. Морозова Т.С.", 1972),
-    ]
-    cursor.executemany(
-        "INSERT OR IGNORE INTO faculties (name, short_name, dean_name, founded_year) VALUES (?,?,?,?)",
-        faculties
-    )
+        # Преподаватели и их ставки вымышлены; реальные деканы хранятся отдельно в faculties.
+        professors = list(PROFESSORS)
+        primary_units = [3, 4, 2, 6, 5, 9, 12, 1, 13, 3, 9, 4]
+        assignments = [(pid, unit, 0.5 if pid in (10, 11, 12) else 1.0) for pid, unit in enumerate(primary_units, 1)]
+        assignments += [(pid, unit, 0.5) for pid, _, _, unit in SECONDARY_DEPARTMENTS]
+        first_names = sorted(FEMALE_FIRST_NAMES | MALE_FIRST_NAMES)
+        for unit in CATALOG['departments']:
+            if unit['id'] in primary_units:
+                continue
+            first = random.choice(first_names)
+            last, patronymic = agree_demo_name(first, random.choice(SURNAME_PAIRS)[0], random.choice(PATRONYMIC_PAIRS)[0])
+            professors.append((first, last, patronymic, 'учебная запись', 'преподаватель (учебная запись)', '2020-09-01'))
+            assignments.append((len(professors), unit['id'], 1.0))
+        conn.executemany('INSERT INTO professors (first_name,last_name,patronymic,academic_degree,position,hire_date) VALUES (?,?,?,?,?,?)', professors)
+        conn.executemany('INSERT INTO professor_departments (professor_id,department_id,rate) VALUES (?,?,?)', assignments)
 
-    # ── Кафедры ──
-    departments = [
-        (1, "Кафедра программной инженерии", "Доц. Иванов Д.С.", "301"),
-        (1, "Кафедра искусственного интеллекта", "Проф. Смирнов К.А.", "405"),
-        (1, "Кафедра кибербезопасности", "Проф. Козлов М.Н.", "412"),
-        (2, "Кафедра экономической теории", "Доц. Лебедева А.Р.", "205"),
-        (2, "Кафедра менеджмента", "Проф. Новиков П.В.", "208"),
-        (3, "Кафедра гражданского права", "Проф. Сидорова О.Л.", "102"),
-        (3, "Кафедра уголовного права", "Доц. Кузнецов Р.Г.", "105"),
-        (4, "Кафедра математики", "Проф. Попова Н.Д.", "501"),
-        (4, "Кафедра физики", "Доц. Васильев С.Т.", "505"),
-    ]
-    cursor.executemany(
-        "INSERT OR IGNORE INTO departments (faculty_id, name, head_name, room_number) VALUES (?,?,?,?)",
-        departments
-    )
+        # Дисциплины, часы и семестры иллюстрируют работу приложения, не заменяют учебный план ГрГУ.
+        courses = list(CORE_COURSES)
+        for unit in CATALOG['departments']:
+            if unit['id'] not in {row[0] for row in courses}:
+                courses.append((unit['id'], 'Введение: ' + unit['name'], f"DEMO-{unit['id']:03d}", 36, 'экзамен', 1))
+        conn.executemany('INSERT INTO courses (department_id,name,code,hours,exam_type,semester) VALUES (?,?,?,?,?,?)', courses)
+        conn.executemany('INSERT INTO course_prerequisites (course_id,prerequisite_course_id) VALUES (?,?)', PREREQUISITES)
+        unit_faculty = {unit['id']: unit['faculty_id'] for unit in CATALOG['departments']}
+        for cid, course in enumerate(courses, 1):
+            professor = next(pid for pid, unit, _ in assignments if unit == course[0])
+            day = 1 if cid == 5 else (cid - 1) % 5 + 1
+            conn.execute('INSERT INTO course_schedules (course_id,professor_id,room,day_of_week,time_start,time_end,semester) VALUES (?,?,?,?,?,?,?)',
+                         (cid, professor, f'DEMO-{course[0]:03d}', day, '09:00', '10:30', course[5]))
 
-    # ── Специальности ──
-    specializations = [
-        (1, "Программная инженерия", "09.03.04", "бакалавриат", 4),
-        (2, "Искусственный интеллект и машинное обучение", "09.03.01", "бакалавриат", 4),
-        (3, "Информационная безопасность", "10.03.01", "бакалавриат", 4),
-        (4, "Экономика", "38.03.01", "бакалавриат", 4),
-        (5, "Менеджмент", "38.03.02", "бакалавриат", 4),
-        (6, "Юриспруденция", "40.03.01", "бакалавриат", 4),
-        (7, "Правоохранительная деятельность", "40.03.02", "бакалавриат", 4),
-        (8, "Математика и компьютерные науки", "01.03.02", "бакалавриат", 4),
-        (9, "Физика", "03.03.01", "бакалавриат", 4),
-    ]
-    cursor.executemany(
-        "INSERT OR IGNORE INTO specializations (department_id, name, code, degree_type, study_duration) VALUES (?,?,?,?,?)",
-        specializations
-    )
+        students = []
+        for faculty in CATALOG['faculties']:
+            programs = [spec for spec in CATALOG['specializations'] if spec['faculty_id'] == faculty['id']]
+            for index in range(STUDENTS_PER_FACULTY):
+                first = random.choice(sorted(MALE_FIRST_NAMES) if faculty['id'] == 13 else first_names)
+                last, patronymic = agree_demo_name(first, random.choice(SURNAME_PAIRS)[0], random.choice(PATRONYMIC_PAIRS)[0])
+                spec = programs[index % len(programs)]
+                year = index % 4 + 1
+                admission = datetime(2026 - year, 9, 1)
+                birth = (datetime(admission.year - 19, 1, 1) + timedelta(days=random.randint(0, 364))).strftime('%Y-%m-%d')
+                group = f"{faculty['short_name']}-{spec['id']:02d}-{str(admission.year)[2:]}"
+                status = 'академический отпуск' if index == 18 else 'отчислен' if index == 19 else 'обучается'
+                students.append((first, last, patronymic, birth, admission.strftime('%Y-%m-%d'), spec['id'], year, group, status))
+        conn.executemany('INSERT INTO students (first_name,last_name,patronymic,birth_date,enrollment_date,specialization_id,course_year,group_name,status) VALUES (?,?,?,?,?,?,?,?,?)', students)
+        programs_by_id = {spec['id']: spec for spec in CATALOG['specializations']}
+        for sid, student in enumerate(students, 1):
+            faculty_id = programs_by_id[student[5]]['faculty_id']
+            available = [cid for cid, course in enumerate(courses, 1) if unit_faculty[course[0]] == faculty_id and course[5] <= student[6] * 2]
+            selected = random.sample(available, min(len(available), random.randint(3, 6)))
+            for cid in selected:
+                course = courses[cid - 1]
+                semester = course[5]
+                start_year = int(student[4][:4]) + (semester - 1) // 2
+                enrolled = f'{start_year}-09-01' if semester % 2 else f'{start_year + 1}-02-01'
+                grade_date = f'{start_year + 1}-01-20' if semester % 2 else f'{start_year + 1}-06-20'
+                conn.execute('INSERT INTO enrollments (student_id,course_id,semester,enrollment_date) VALUES (?,?,?,?)', (sid, cid, semester, enrolled))
+                score = random.randint(1, 10) if course[4] == 'экзамен' else None
+                result = ('сдано' if score >= 4 else 'не сдано') if score is not None else ('не зачтено' if sid % 9 == 0 else 'зачтено')
+                conn.execute('INSERT INTO grades (student_id,course_id,grade_type,score,assessment_result,grade_date,semester) VALUES (?,?,?,?,?,?,?)',
+                             (sid, cid, course[4], score, result, grade_date, semester))
+        exam_grades = conn.execute('SELECT id,score FROM grades WHERE score IS NOT NULL ORDER BY id LIMIT 3').fetchall()
+        for gid, score in exam_grades:
+            conn.execute('INSERT INTO grade_history (grade_id,old_score,new_score,changed_by,changed_at,reason) VALUES (?,?,?,?,?,?)',
+                         (gid, max(1, score - 1), score, 'Учебный администратор', '2026-06-25 14:30:00', 'Вымышленный пример пересмотра отметки'))
 
-    # ── Преподаватели ──
-    professors_data = [
-        ("Александр", "Иванов", "Дмитриевич", "к.т.н.", "доцент", "2015-09-01"),
-        ("Кирилл", "Смирнов", "Андреевич", "д.т.н.", "профессор", "2010-03-15"),
-        ("Михаил", "Козлов", "Николаевич", "д.ф.-м.н.", "профессор", "2008-01-20"),
-        ("Анна", "Лебедева", "Романовна", "к.э.н.", "доцент", "2012-08-10"),
-        ("Павел", "Новиков", "Викторович", "д.э.н.", "профессор", "2005-04-01"),
-        ("Ольга", "Сидорова", "Леонидовна", "д.ю.н.", "профессор", "2002-09-01"),
-        ("Роман", "Кузнецов", "Григорьевич", "к.ю.н.", "доцент", "2018-01-15"),
-        ("Наталья", "Попова", "Дмитриевна", "д.ф.-м.н.", "профессор", "1999-09-01"),
-        ("Сергей", "Васильев", "Тимофеевич", "к.ф.-м.н.", "доцент", "2014-03-01"),
-        ("Елена", "Морозова", "Сергеевна", "к.т.н.", "старший преподаватель", "2019-09-01"),
-        ("Дмитрий", "Петров", "Ильич", "к.ю.н.", "доцент", "2016-02-01"),
-        ("Татьяна", "Соколова", "Александровна", "д.т.н.", "профессор", "2011-09-01"),
-    ]
-    cursor.executemany(
-        "INSERT OR IGNORE INTO professors (first_name, last_name, patronymic, academic_degree, position, hire_date) VALUES (?,?,?,?,?,?)",
-        professors_data
-    )
-
-    # ── Связь преподавателей с кафедрами (совместительство) ──
-    prof_deps = [
-        (1, 1, 1.0),   # Иванов — ПИ
-        (2, 2, 1.0),   # Смирнов — ИИ
-        (3, 3, 1.0),   # Козлов — КБ
-        (4, 4, 1.0),   # Лебедева — ЭТ
-        (5, 5, 1.0),   # Новиков — Менеджмент
-        (6, 6, 1.0),   # Сидорова — ГП
-        (7, 7, 1.0),   # Кузнецов — УП
-        (8, 8, 1.0),   # Попова — Математика
-        (9, 9, 1.0),   # Васильев — Физика
-        (10, 1, 0.5),  # Морозова — ПИ (совместительство 0.5)
-        (11, 6, 0.5),  # Петров — ГП (совместительство)
-        (12, 2, 0.5),  # Соколова — ИИ (совместительство)
-    ]
-    prof_deps.extend((prof_id, department_id, 0.5)
-                     for prof_id, _, _, department_id in SECONDARY_DEPARTMENTS)
-    cursor.executemany(
-        "INSERT OR IGNORE INTO professor_departments (professor_id, department_id, rate) VALUES (?,?,?)",
-        prof_deps
-    )
-
-    # ── Курсы ──
-    courses_data = [
-        (1, "Базы данных", "БД-101", 72, "экзамен", 3),
-        (1, "Программирование на Python", "ПР-101", 108, "экзамен", 1),
-        (2, "Машинное обучение", "МЛ-201", 90, "экзамен", 5),
-        (2, "Нейронные сети", "НС-301", 72, "зачет", 6),
-        (3, "Криптография", "КР-101", 72, "экзамен", 3),
-        (3, "Этичный хакинг", "ЭХ-201", 54, "зачет", 5),
-        (4, "Микроэкономика", "МИК-101", 72, "экзамен", 1),
-        (4, "Макроэкономика", "МАК-201", 72, "экзамен", 2),
-        (5, "Стратегический менеджмент", "СМ-301", 54, "зачет", 5),
-        (6, "Гражданское право", "ГП-101", 90, "экзамен", 2),
-        (7, "Уголовное право", "УП-101", 90, "экзамен", 2),
-        (7, "Криминалистика", "КРМ-201", 72, "экзамен", 3),
-        (8, "Математический анализ", "МА-101", 144, "экзамен", 1),
-        (8, "Линейная алгебра", "ЛА-101", 108, "экзамен", 1),
-        (9, "Общая физика", "ОФ-101", 144, "экзамен", 1),
-        (9, "Квантовая механика", "КМ-301", 72, "экзамен", 5),
-    ]
-    cursor.executemany(
-        "INSERT OR IGNORE INTO courses (department_id, name, code, hours, exam_type, semester) VALUES (?,?,?,?,?,?)",
-        courses_data
-    )
-
-    # ── Пререквизиты курсов ──
-    prereqs = [
-        (3, 2),   # МЛ требует Python
-        (4, 3),   # НС требует МЛ
-        (5, 2),   # КР требует Python
-        (6, 5),   # ЭХ требует КР
-        (8, 7),   # МАК требует МИК
-        (16, 15), # КМ требует ОФ
-    ]
-    cursor.executemany(
-        "INSERT OR IGNORE INTO course_prerequisites (course_id, prerequisite_course_id) VALUES (?,?)",
-        prereqs
-    )
-
-    # ── Студенты ──
-    first_names = ["Алексей", "Мария", "Дмитрий", "Анна", "Сергей", "Ольга", "Иван", "Екатерина",
-                   "Андрей", "Наталья", "Михаил", "Татьяна", "Павел", "Юлия", "Роман", "Елена",
-                   "Кирилл", "Виктория", "Артем", "София", "Никита", "Полина", "Максим", "Алиса"]
-    last_names = ["Иванов", "Петров", "Сидоров", "Козлова", "Новиков", "Морозова", "Волков", "Лебедева",
-                  "Соколов", "Попова", "Кузнецов", "Васильева", "Петрова", "Смирнов", "Козлов", "Иванова"]
-    patronymics = ["Алексеевич", "Алексеевна", "Дмитриевич", "Дмитриевна", "Сергеевич", "Сергеевна",
-                   "Иванович", "Ивановна", "Андреевич", "Андреевна", "Михайлович", "Михайловна"]
-    groups = ["ПИ-101", "ПИ-102", "ИИ-201", "ИИ-202", "КБ-301", "КБ-302",
-              "ЭК-101", "ЭК-102", "МН-201", "МН-202", "ЮР-101", "ЮР-102",
-              "МТ-101", "МТ-102", "ФЗ-201", "ФЗ-202"]
-    statuses = ["обучается", "обучается", "обучается", "обучается", "академический отпуск", "отчислен"]
-
-    students_data = []
-    for i in range(80):
-        fn = random.choice(first_names)
-        ln = random.choice(last_names)
-        pat = random.choice(patronymics)
-        ln, pat = agree_demo_name(fn, ln, pat)
-        spec_id = random.randint(1, 9)
-        course_year = random.randint(1, 4)
-        group = random.choice(groups)
-        birth = (datetime(2000, 1, 1) + timedelta(days=random.randint(0, 2000))).strftime("%Y-%m-%d")
-        enroll = (datetime(2021, 9, 1) + timedelta(days=random.randint(0, 730))).strftime("%Y-%m-%d")
-        status = random.choice(statuses)
-        students_data.append((fn, ln, pat, birth, enroll, spec_id, course_year, group, status))
-
-    cursor.executemany(
-        "INSERT INTO students (first_name, last_name, patronymic, birth_date, enrollment_date, specialization_id, course_year, group_name, status) VALUES (?,?,?,?,?,?,?,?,?)",
-        students_data
-    )
-
-    # ── Расписание ──
-    days = [1, 2, 3, 4, 5]  # пн-пт
-    times = [("09:00", "10:30"), ("10:45", "12:15"), ("13:00", "14:30"), ("14:45", "16:15"), ("16:30", "18:00")]
-    rooms = ["301", "302", "405", "406", "412", "205", "208", "102", "105", "501", "505", "Ауд.1", "Ауд.2"]
-
-    schedules = []
-    for course_id in range(1, 17):
-        prof_id = random.randint(1, 12)
-        day = random.choice(days)
-        t_start, t_end = random.choice(times)
-        room = random.choice(rooms)
-        sem = random.choice([1, 2, 3, 4, 5, 6, 7, 8])
-        schedules.append((course_id, prof_id, room, day, t_start, t_end, sem))
-    cursor.executemany(
-        "INSERT INTO course_schedules (course_id, professor_id, room, day_of_week, time_start, time_end, semester) VALUES (?,?,?,?,?,?,?)",
-        schedules
-    )
-
-    # ── Зачисления ──
-    enrollments_data = []
-    for student_id in range(1, 81):
-        num_courses = random.randint(3, 6)
-        course_ids = random.sample(range(1, 17), num_courses)
-        for cid in course_ids:
-            sem = random.choice([1, 2, 3, 4, 5, 6, 7, 8])
-            ed = (datetime(2023, 9, 1) + timedelta(days=random.randint(0, 365))).strftime("%Y-%m-%d")
-            enrollments_data.append((student_id, cid, sem, ed))
-    cursor.executemany(
-        "INSERT INTO enrollments (student_id, course_id, semester, enrollment_date) VALUES (?,?,?,?)",
-        enrollments_data
-    )
-
-    # ── Оценки ──
-    grade_types = ["экзамен", "зачет", "курсовая", "практика"]
-    grades_data = []
-    for student_id in range(1, 81):
-        num_grades = random.randint(4, 10)
-        for _ in range(num_grades):
-            cid = random.randint(1, 16)
-            gt = random.choice(grade_types)
-            score = random.randint(2, 5) if gt == "зачет" else random.randint(60, 100)
-            gd = (datetime(2023, 1, 15) + timedelta(days=random.randint(0, 500))).strftime("%Y-%m-%d")
-            sem = random.randint(1, 8)
-            grades_data.append((student_id, cid, gt, score, gd, sem))
-    cursor.executemany(
-        "INSERT INTO grades (student_id, course_id, grade_type, score, grade_date, semester) VALUES (?,?,?,?,?,?)",
-        grades_data
-    )
-
-    # ── История изменения оценок (несколько записей) ──
-    grade_history_data = [
-        (1, 85, 92, "admin", "2024-01-20 14:30:00", "Пересмотр работы"),
-        (5, 72, 78, "Иванов А.Д.", "2024-02-10 10:15:00", "Дополнительные задания"),
-        (12, 60, 75, "Смирнов К.А.", "2024-01-25 16:00:00", "Устный пересчет"),
-    ]
-    cursor.executemany(
-        "INSERT INTO grade_history (grade_id, old_score, new_score, changed_by, changed_at, reason) VALUES (?,?,?,?,?,?)",
-        grade_history_data
-    )
-
-    # ── Общежития ──
-    dorms = [
-        ("Общежитие №1", "ул. Ленина, 25", 250),
-        ("Общежитие №2", "ул. Гагарина, 14", 180),
-        ("Общежитие №3", "пр. Мира, 78", 300),
-    ]
-    cursor.executemany(
-        "INSERT OR IGNORE INTO dormitories (name, address, capacity) VALUES (?,?,?)",
-        dorms
-    )
-
-    # ── Расселение ──
-    dorm_assignments = []
-    for student_id in range(1, 41):
-        did = random.randint(1, 3)
-        room = f"{random.randint(1, 5)}{random.randint(0, 9):02d}"
-        mid = (datetime(2023, 9, 1) + timedelta(days=random.randint(0, 30))).strftime("%Y-%m-%d")
-        dorm_assignments.append((student_id, did, room, mid, None))
-    cursor.executemany(
-        "INSERT INTO dormitory_assignments (student_id, dormitory_id, room_number, move_in_date, move_out_date) VALUES (?,?,?,?,?)",
-        dorm_assignments
-    )
-
-    # ── Конфиденциальные данные студентов ──
-    conf_personal = []
-    for student_id in range(1, 81):
-        ps = f"{random.randint(10, 99):02d}"
-        pn = f"{random.randint(100000, 999999)}"
-        snils = f"{random.randint(100, 999)}-{random.randint(100, 999)}-{random.randint(100, 999)} {random.randint(10, 99)}"
-        inn = f"{random.randint(1000000000, 9999999999)}"
-        phone = f"+7(9{random.randint(10, 99)}){random.randint(100, 999)}-{random.randint(10, 99)}-{random.randint(10, 99)}"
-        email = f"student{student_id}@edu.ru"
-        reg_addr = f"г. Москва, ул. {random.choice(['Ленина', 'Гагарина', 'Мира', 'Пушкина'])}, д. {random.randint(1, 100)}, кв. {random.randint(1, 200)}"
-        conf_personal.append((student_id, ps, pn, snils, inn, phone, email, reg_addr, reg_addr))
-    cursor.executemany(
-        "INSERT INTO conf_student_personal (student_id, passport_series, passport_number, snils, inn, phone, email, registration_address, actual_address) VALUES (?,?,?,?,?,?,?,?,?)",
-        conf_personal
-    )
-
-    # ── Финансовые данные ──
-    conf_financial = []
-    for student_id in range(1, 81):
-        contract = f"Д-{random.randint(1000, 9999)}-{random.randint(2021, 2024)}"
-        fee = random.choice([150000, 200000, 250000, 300000])
-        paid = random.choice([0, fee, fee // 2, fee * 3 // 4])
-        debt = fee - paid
-        scholarship = random.choice([0, 0, 0, 3000, 5000, 7000, 10000])
-        status = "оплачено" if debt == 0 else "долг" if debt > 0 else "переплата"
-        conf_financial.append((student_id, contract, fee, paid, debt, scholarship, status))
-    cursor.executemany(
-        "INSERT INTO conf_student_financial (student_id, contract_number, tuition_fee, paid_amount, debt_amount, scholarship_amount, payment_status) VALUES (?,?,?,?,?,?,?)",
-        conf_financial
-    )
-
-    # ── Дисциплинарные взыскания ──
-    conf_disc = [
-        (5, "замечание", "Опоздание на занятия более 5 раз", "2024-03-15", "Козлов М.Н.", "активно"),
-        (12, "выговор", "Нарушение правил проживания в общежитии", "2024-02-20", "Администрация", "активно"),
-        (23, "строгий выговор", "Использование чужих учетных данных", "2024-01-10", "Соколов А.В.", "снято"),
-        (34, "замечание", "Неявка на экзамен без уважительной причины", "2024-04-05", "Иванов Д.С.", "активно"),
-        (45, "выговор", "Повреждение университетского имущества", "2023-12-18", "Волкова Е.П.", "активно"),
-    ]
-    cursor.executemany(
-        "INSERT INTO conf_disciplinary_actions (student_id, action_type, description, decision_date, decision_by, status) VALUES (?,?,?,?,?,?)",
-        conf_disc
-    )
-
-    # ── Рецензии на преподавателей ──
-    conf_reviews = [
-        (1, "2023-2024", 85, "Хорошая подача материала, много практики", None, "Попова Н.Д.", "2024-06-15"),
-        (2, "2023-2024", 92, "Отличные лекции, сложные но интересные задания", None, "Соколова А.А.", "2024-06-15"),
-        (3, "2023-2024", 78, "Требуется больше практических занятий", "Студенты жалуются на строгость", "Иванов Д.С.", "2024-06-15"),
-        (5, "2023-2024", 88, "Актуальные кейсы, хорошая обратная связь", None, "Лебедева А.Р.", "2024-06-15"),
-        (8, "2023-2024", 95, "Выдающийся преподаватель, глубокие знания", None, "Васильев С.Т.", "2024-06-15"),
-    ]
-    cursor.executemany(
-        "INSERT INTO conf_professor_reviews (professor_id, review_period, performance_score, student_feedback_summary, disciplinary_notes, reviewed_by, review_date) VALUES (?,?,?,?,?,?,?)",
-        conf_reviews
-    )
-
-    conn.commit()
-    print(f"[OK] Данные заполнены: студенты, курсы, оценки, общежития, конфиденциальные таблицы")
+        for dorm in CATALOG['dormitories']:
+            conn.execute('INSERT INTO dormitories (id,name,address) VALUES (?,?,?)', (dorm['id'], dorm['name'], dorm['address']))
+        residents = [(sid, student) for sid, student in enumerate(students, 1) if student[8] == 'обучается'][:STUDENT_COUNT // 2]
+        for index, (sid, student) in enumerate(residents):
+            conn.execute('INSERT INTO dormitory_assignments (student_id,dormitory_id,room_number,move_in_date) VALUES (?,?,?,?)',
+                         (sid, index % len(CATALOG['dormitories']) + 1, f'DEMO-{index + 1:03d}', student[4]))
+        for sid, student in enumerate(students, 1):
+            address = f'Учебный адрес №{sid}, г. Гродно'
+            conn.execute('INSERT INTO conf_student_personal (student_id,passport_series,passport_number,personal_number,phone,email,registration_address,actual_address) VALUES (?,?,?,?,?,?,?,?)',
+                         (sid, 'DEMO', f'DEMO-P-{sid:04d}', f'DEMO-BY-{sid:04d}', f'+375 (00) 000-{sid:04d}', f'student{sid}@example.invalid', address, address))
+            fee = random.choice([4000, 4500, 5000, 5500])
+            paid = random.choice([0, fee // 2, fee])
+            conn.execute('INSERT INTO conf_student_financial (student_id,contract_number,tuition_fee,paid_amount,debt_amount,scholarship_amount,payment_status,currency) VALUES (?,?,?,?,?,?,?,?)',
+                         (sid, f'DEMO-Д-{sid:04d}', fee, paid, fee - paid, random.choice([0, 150, 200, 250]), 'оплачено' if paid == fee else 'долг', 'BYN'))
+        for sid in (5, 12, 23, 34, 45):
+            conn.execute('INSERT INTO conf_disciplinary_actions (student_id,action_type,description,decision_date,decision_by,status) VALUES (?,?,?,?,?,?)',
+                         (sid, 'учебный пример', 'Вымышленная запись для проверки разграничения доступа', '2026-04-15', 'Учебный администратор', 'снято'))
+        for pid in range(1, 6):
+            conn.execute('INSERT INTO conf_professor_reviews (professor_id,review_period,performance_score,student_feedback_summary,disciplinary_notes,reviewed_by,review_date) VALUES (?,?,?,?,?,?,?)',
+                         (pid, '2025/2026', random.randint(7, 10), 'Искусственный отзыв для демонстрации', None, 'Учебный администратор', '2026-06-30'))
+    print(f"[OK] Учебная база ГрГУ: {len(CATALOG['faculties'])} факультетов, {len(CATALOG['departments'])} подразделений, {len(CATALOG['specializations'])} вариантов подготовки, {len(students)} студентов")
 
 
-if __name__ == "__main__":
-    conn = sqlite3.connect(DB_PATH)
-    create_tables(conn)
-    fill_data(conn)
-    conn.close()
-    print(f"[Готово] База данных сохранена: {DB_PATH}")
+if __name__ == '__main__':
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        create_tables(conn)
+        fill_data(conn)
+    finally:
+        conn.close()
+    print(f'[Готово] Учебная база сохранена: {DB_PATH}')

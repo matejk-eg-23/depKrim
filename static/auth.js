@@ -11,7 +11,7 @@ function showAuthScreen(id) {
         const empty = document.createElement('div');
         empty.id = 'emptyState';
         empty.className = 'empty-state';
-        empty.textContent = 'Задайте вопрос к базе данных университета';
+        empty.textContent = 'Задайте вопрос к учебной базе ГрГУ имени Янки Купалы';
         document.getElementById('resultsZone').append(empty);
         for (const key of Object.keys(window)) if (key.startsWith('tdexp_')) delete window[key];
         if (typeof currentSQL !== 'undefined') currentSQL = '';

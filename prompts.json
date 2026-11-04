@@ -1,47 +1,79 @@
 [
   {
-    "question": "Покажи всех студентов факультета информационных технологий",
-    "sql": "SELECT s.first_name, s.last_name, s.group_name, s.course_year, sp.name AS specialization FROM students s JOIN specializations sp ON s.specialization_id = sp.id JOIN departments d ON sp.department_id = d.id JOIN faculties f ON d.faculty_id = f.id WHERE f.short_name = 'ФИТ' ORDER BY s.last_name, s.first_name;"
+    "question": "Покажи все факультеты ГрГУ имени Янки Купалы",
+    "sql": "SELECT name, short_name, dean_name FROM faculties ORDER BY name;",
+    "show_in_menu": true
+  },
+  {
+    "question": "Покажи всех студентов факультета математики и информатики",
+    "sql": "SELECT s.first_name, s.last_name, s.group_name, s.course_year, sp.name AS specialization FROM students s JOIN specializations sp ON s.specialization_id = sp.id JOIN faculties f ON sp.faculty_id = f.id WHERE f.short_name = 'ФаМИ' ORDER BY s.last_name, s.first_name;",
+    "show_in_menu": true
+  },
+  {
+    "question": "Покажи студентов специальности Кибербезопасность",
+    "sql": "SELECT s.last_name, s.first_name, s.group_name, sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Кибербезопасность' ORDER BY s.last_name, s.first_name;",
+    "show_in_menu": true
+  },
+  {
+    "question": "Сколько студентов на каждом факультете?",
+    "sql": "SELECT f.name, COUNT(s.id) AS student_count FROM faculties f LEFT JOIN specializations sp ON sp.faculty_id=f.id LEFT JOIN students s ON s.specialization_id=sp.id GROUP BY f.id ORDER BY f.name;",
+    "show_in_menu": true
+  },
+  {
+    "question": "Покажи кафедры юридического факультета",
+    "sql": "SELECT d.name FROM departments d JOIN faculties f ON d.faculty_id=f.id WHERE f.name='Юридический факультет' AND d.unit_type='кафедра' ORDER BY d.name;",
+    "show_in_menu": true
+  },
+  {
+    "question": "Сколько студентов проживает в каждом общежитии?",
+    "sql": "SELECT d.name, d.address, COUNT(da.id) AS residents FROM dormitories d LEFT JOIN dormitory_assignments da ON d.id = da.dormitory_id WHERE da.move_out_date IS NULL GROUP BY d.id ORDER BY residents DESC;",
+    "show_in_menu": true
+  },
+  {
+    "question": "Покажи преподавателей, которые работают на нескольких кафедрах",
+    "sql": "SELECT p.last_name, p.first_name, p.academic_degree, COUNT(pd.department_id) AS department_count FROM professors p JOIN professor_departments pd ON p.id = pd.professor_id GROUP BY p.id HAVING COUNT(pd.department_id) > 1 ORDER BY department_count DESC;",
+    "show_in_menu": true
+  },
+  {
+    "question": "Топ-5 студентов по среднему баллу за экзамены",
+    "sql": "SELECT s.last_name, s.first_name, s.group_name, ROUND(AVG(g.score), 2) AS avg_score FROM students s JOIN grades g ON s.id = g.student_id WHERE g.grade_type = 'экзамен' GROUP BY s.id ORDER BY avg_score DESC LIMIT 5;",
+    "show_in_menu": true
+  },
+  {
+    "question": "Покажи расписание занятий по кафедре системного программирования и компьютерной безопасности на понедельник",
+    "sql": "SELECT c.name AS course, p.last_name AS professor, cs.room, cs.time_start, cs.time_end FROM course_schedules cs JOIN courses c ON cs.course_id = c.id JOIN professors p ON cs.professor_id = p.id JOIN departments d ON c.department_id = d.id WHERE d.name = 'Кафедра системного программирования и компьютерной безопасности' AND cs.day_of_week = 1 ORDER BY cs.time_start;",
+    "show_in_menu": true
+  },
+  {
+    "question": "Какие студенты имеют академический отпуск?",
+    "sql": "SELECT last_name, first_name, group_name, course_year, enrollment_date FROM students WHERE status = 'академический отпуск' ORDER BY last_name;",
+    "show_in_menu": true
+  },
+  {
+    "question": "Show students from the Faculty of Mathematics and Informatics",
+    "sql": "SELECT s.first_name, s.last_name, s.group_name, s.course_year, sp.name AS specialization FROM students s JOIN specializations sp ON s.specialization_id = sp.id JOIN faculties f ON sp.faculty_id = f.id WHERE f.short_name = 'ФаМИ' ORDER BY s.last_name, s.first_name;",
+    "show_in_menu": true
+  },
+  {
+    "question": "Покажи изменения оценок с указанием кто и когда изменил",
+    "sql": "SELECT s.last_name, s.first_name, c.name AS course, gh.old_score, gh.new_score, gh.changed_by, gh.changed_at, gh.reason FROM grade_history gh JOIN grades g ON gh.grade_id = g.id JOIN students s ON g.student_id = s.id JOIN courses c ON g.course_id = c.id WHERE gh.grade_id IS NOT NULL ORDER BY gh.changed_at DESC;",
+    "show_in_menu": true
   },
   {
     "question": "Какой средний балл по курсу Базы данных?",
     "sql": "SELECT AVG(g.score) AS average_score FROM grades g JOIN courses c ON g.course_id = c.id WHERE c.name = 'Базы данных' AND g.grade_type = 'экзамен';"
   },
   {
-    "question": "Сколько студентов проживает в каждом общежитии?",
-    "sql": "SELECT d.name, d.address, COUNT(da.id) AS residents FROM dormitories d LEFT JOIN dormitory_assignments da ON d.id = da.dormitory_id WHERE da.move_out_date IS NULL GROUP BY d.id ORDER BY residents DESC;"
-  },
-  {
-    "question": "Покажи преподавателей, которые работают на нескольких кафедрах",
-    "sql": "SELECT p.last_name, p.first_name, p.academic_degree, COUNT(pd.department_id) AS department_count FROM professors p JOIN professor_departments pd ON p.id = pd.professor_id GROUP BY p.id HAVING COUNT(pd.department_id) > 1 ORDER BY department_count DESC;"
-  },
-  {
     "question": "Какие курсы требуют прохождения других курсов?",
     "sql": "SELECT c.name AS course, c2.name AS prerequisite FROM course_prerequisites cp JOIN courses c ON cp.course_id = c.id JOIN courses c2 ON cp.prerequisite_course_id = c2.id ORDER BY c.name;"
-  },
-  {
-    "question": "Топ-5 студентов по среднему баллу за экзамены",
-    "sql": "SELECT s.last_name, s.first_name, s.group_name, ROUND(AVG(g.score), 2) AS avg_score FROM students s JOIN grades g ON s.id = g.student_id WHERE g.grade_type = 'экзамен' GROUP BY s.id ORDER BY avg_score DESC LIMIT 5;"
   },
   {
     "question": "Сколько студентов на каждом курсе по специальности Программная инженерия?",
     "sql": "SELECT s.course_year, COUNT(*) AS student_count FROM students s JOIN specializations sp ON s.specialization_id = sp.id WHERE sp.name = 'Программная инженерия' GROUP BY s.course_year ORDER BY s.course_year;"
   },
   {
-    "question": "Покажи расписание занятий по кафедре кибербезопасности на понедельник",
-    "sql": "SELECT c.name AS course, p.last_name AS professor, cs.room, cs.time_start, cs.time_end FROM course_schedules cs JOIN courses c ON cs.course_id = c.id JOIN professors p ON cs.professor_id = p.id JOIN departments d ON c.department_id = d.id WHERE d.name = 'Кафедра кибербезопасности' AND cs.day_of_week = 1 ORDER BY cs.time_start;"
-  },
-  {
-    "question": "Какие студенты имеют академический отпуск?",
-    "sql": "SELECT last_name, first_name, group_name, course_year, enrollment_date FROM students WHERE status = 'академический отпуск' ORDER BY last_name;"
-  },
-  {
-    "question": "Покажи изменения оценок с указанием кто и когда изменил",
-    "sql": "SELECT s.last_name, s.first_name, c.name AS course, gh.old_score, gh.new_score, gh.changed_by, gh.changed_at, gh.reason FROM grade_history gh JOIN grades g ON gh.grade_id = g.id JOIN students s ON g.student_id = s.id JOIN courses c ON g.course_id = c.id WHERE gh.grade_id IS NOT NULL ORDER BY gh.changed_at DESC;"
-  },
-  {
     "question": "Какой процент студентов сдал экзамен на отлично по курсу Машинное обучение?",
-    "sql": "SELECT ROUND(COUNT(CASE WHEN g.score >= 90 THEN 1 END) * 100.0 / COUNT(*), 2) AS excellent_percent FROM grades g JOIN courses c ON g.course_id = c.id WHERE c.name = 'Машинное обучение' AND g.grade_type = 'экзамен';"
+    "sql": "SELECT ROUND(COUNT(CASE WHEN g.score >= 9 THEN 1 END) * 100.0 / COUNT(*), 2) AS excellent_percent FROM grades g JOIN courses c ON g.course_id = c.id WHERE c.name = 'Машинное обучение' AND g.grade_type = 'экзамен';"
   },
   {
     "question": "Покажи все курсы 3 семестра с указанием преподавателя и аудитории",
@@ -57,14 +89,306 @@
   },
   {
     "question": "Покажи факультеты и количество кафедр на каждом",
-    "sql": "SELECT f.name AS faculty, f.dean_name, COUNT(d.id) AS department_count FROM faculties f LEFT JOIN departments d ON f.id = d.faculty_id GROUP BY f.id ORDER BY department_count DESC;"
-  },
-  {
-    "question": "Show students from IT faculty",
-    "sql": "SELECT s.first_name, s.last_name, s.group_name, s.course_year, sp.name AS specialization FROM students s JOIN specializations sp ON s.specialization_id = sp.id JOIN departments d ON sp.department_id = d.id JOIN faculties f ON d.faculty_id = f.id WHERE f.short_name = 'ФИТ' ORDER BY s.last_name, s.first_name;"
+    "sql": "SELECT f.name AS faculty, COUNT(d.id) AS department_count FROM faculties f LEFT JOIN departments d ON f.id = d.faculty_id AND d.unit_type = 'кафедра' GROUP BY f.id ORDER BY department_count DESC;"
   },
   {
     "question": "What is the average grade for Machine Learning course?",
     "sql": "SELECT AVG(g.score) AS average_score FROM grades g JOIN courses c ON g.course_id = c.id WHERE c.name = 'Машинное обучение' AND g.grade_type = 'экзамен';"
+  },
+  {
+    "question": "Покажи учебные циклы военного факультета",
+    "sql": "SELECT d.name FROM departments d JOIN faculties f ON d.faculty_id=f.id WHERE f.name='Военный факультет' AND d.unit_type='цикл' ORDER BY d.name;"
+  },
+  {
+    "question": "Какие студенты не сдали экзамены?",
+    "sql": "SELECT s.last_name,s.first_name,c.name,g.score FROM grades g JOIN students s ON g.student_id=s.id JOIN courses c ON g.course_id=c.id WHERE g.grade_type='экзамен' AND g.score<4 ORDER BY s.last_name;"
+  },
+  {
+    "question": "Покажи студентов факультета «Факультет математики и информатики»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.name AS specialization FROM students s JOIN specializations sp ON s.specialization_id=sp.id JOIN faculties f ON sp.faculty_id=f.id WHERE f.name='Факультет математики и информатики' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов факультета «Факультет экономики и управления»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.name AS specialization FROM students s JOIN specializations sp ON s.specialization_id=sp.id JOIN faculties f ON sp.faculty_id=f.id WHERE f.name='Факультет экономики и управления' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов факультета «Юридический факультет»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.name AS specialization FROM students s JOIN specializations sp ON s.specialization_id=sp.id JOIN faculties f ON sp.faculty_id=f.id WHERE f.name='Юридический факультет' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов факультета «Физико-технический факультет»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.name AS specialization FROM students s JOIN specializations sp ON s.specialization_id=sp.id JOIN faculties f ON sp.faculty_id=f.id WHERE f.name='Физико-технический факультет' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов факультета «Инженерный факультет»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.name AS specialization FROM students s JOIN specializations sp ON s.specialization_id=sp.id JOIN faculties f ON sp.faculty_id=f.id WHERE f.name='Инженерный факультет' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов факультета «Факультет биологии и экологии»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.name AS specialization FROM students s JOIN specializations sp ON s.specialization_id=sp.id JOIN faculties f ON sp.faculty_id=f.id WHERE f.name='Факультет биологии и экологии' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов факультета «Факультет искусств и дизайна»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.name AS specialization FROM students s JOIN specializations sp ON s.specialization_id=sp.id JOIN faculties f ON sp.faculty_id=f.id WHERE f.name='Факультет искусств и дизайна' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов факультета «Факультет истории, коммуникации и туризма»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.name AS specialization FROM students s JOIN specializations sp ON s.specialization_id=sp.id JOIN faculties f ON sp.faculty_id=f.id WHERE f.name='Факультет истории, коммуникации и туризма' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов факультета «Факультет психологии»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.name AS specialization FROM students s JOIN specializations sp ON s.specialization_id=sp.id JOIN faculties f ON sp.faculty_id=f.id WHERE f.name='Факультет психологии' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов факультета «Факультет физической культуры»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.name AS specialization FROM students s JOIN specializations sp ON s.specialization_id=sp.id JOIN faculties f ON sp.faculty_id=f.id WHERE f.name='Факультет физической культуры' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов факультета «Филологический факультет»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.name AS specialization FROM students s JOIN specializations sp ON s.specialization_id=sp.id JOIN faculties f ON sp.faculty_id=f.id WHERE f.name='Филологический факультет' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов факультета «Педагогический факультет»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.name AS specialization FROM students s JOIN specializations sp ON s.specialization_id=sp.id JOIN faculties f ON sp.faculty_id=f.id WHERE f.name='Педагогический факультет' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов факультета «Военный факультет»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.name AS specialization FROM students s JOIN specializations sp ON s.specialization_id=sp.id JOIN faculties f ON sp.faculty_id=f.id WHERE f.name='Военный факультет' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Управление информационными ресурсами»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Управление информационными ресурсами' AND sp.code='6-05-0414-04' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Математика»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Математика' AND sp.code='6-05-0533-06' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Прикладная математика»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Прикладная математика' AND sp.code='6-05-0533-09' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Кибербезопасность»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Кибербезопасность' AND sp.code='6-05-0533-12' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Искусственный интеллект»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Искусственный интеллект' AND sp.code='6-05-0611-03' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Программная инженерия»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Программная инженерия' AND sp.code='6-05-0612-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Экономика и управление»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Экономика и управление' AND sp.code='6-05-0311-02' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Мировая экономика»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Мировая экономика' AND sp.code='6-05-0311-03' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Финансы и кредит»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Финансы и кредит' AND sp.code='6-05-0411-02' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Менеджмент»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Менеджмент' AND sp.code='6-05-0412-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Информационные системы и технологии»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Информационные системы и технологии' AND sp.code='6-05-0611-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Электронная экономика»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Электронная экономика' AND sp.code='6-05-0611-04' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Правоведение»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Правоведение' AND sp.code='6-05-0421-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Международное право»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Международное право' AND sp.code='6-05-0421-02' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Экономическое право»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Экономическое право' AND sp.code='6-05-0421-03' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Таможенное дело»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Таможенное дело' AND sp.code='6-05-1036-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Физика»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Физика' AND sp.code='6-05-0533-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Компьютерная физика»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Компьютерная физика' AND sp.code='6-05-0533-04' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Робототехнические системы»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Робототехнические системы' AND sp.code='6-05-0713-05' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Информационно-измерительные приборы и системы»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Информационно-измерительные приборы и системы' AND sp.code='6-05-0716-03' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Электроэнергетика и электротехника»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Электроэнергетика и электротехника' AND sp.code='7-07-0712-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Технология машиностроения, металлорежущие станки и инструменты»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Технология машиностроения, металлорежущие станки и инструменты' AND sp.code='6-05-0714-02' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Инженерно-техническое проектирование и производство материалов и изделий из них»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Инженерно-техническое проектирование и производство материалов и изделий из них' AND sp.code='6-05-0714-03' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Эксплуатация наземных транспортных и технологических машин и комплексов»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Эксплуатация наземных транспортных и технологических машин и комплексов' AND sp.code='6-05-0715-07' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Транспортная логистика»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Транспортная логистика' AND sp.code='6-05-1042-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Архитектура»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Архитектура' AND sp.code='7-07-0731-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Строительство зданий и сооружений»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Строительство зданий и сооружений' AND sp.code='7-07-0732-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Биология»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Биология' AND sp.code='6-05-0511-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Биохимия»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Биохимия' AND sp.code='6-05-0511-02' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Биоинженерия и биоинформатика»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Биоинженерия и биоинформатика' AND sp.code='6-05-0511-05' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Экология»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Экология' AND sp.code='6-05-0521-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Производство продукции и организация общественного питания»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Производство продукции и организация общественного питания' AND sp.code='6-05-0721-03' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Фундаментальная и прикладная биотехнология»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Фундаментальная и прикладная биотехнология' AND sp.code='7-07-0511-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Художественное образование»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Художественное образование' AND sp.code='6-05-0113-06' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Музыкальное образование»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Музыкальное образование' AND sp.code='6-05-0113-07' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Графический дизайн и мультимедиадизайн»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Графический дизайн и мультимедиадизайн' AND sp.code='6-05-0211-05' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Дизайн костюма и текстиля»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Дизайн костюма и текстиля' AND sp.code='6-05-0212-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «История»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='История' AND sp.code='6-05-0222-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Лингвистическое обеспечение межкультурной коммуникации»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Лингвистическое обеспечение межкультурной коммуникации' AND sp.code='6-05-0231-03' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Социология»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Социология' AND sp.code='6-05-0314-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Журналистика»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Журналистика' AND sp.code='6-05-0321-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Информация и коммуникация»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Информация и коммуникация' AND sp.code='6-05-0321-02' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Туризм и гостеприимство»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Туризм и гостеприимство' AND sp.code='6-05-1013-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Социально-педагогическое и психологическое образование»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Социально-педагогическое и психологическое образование' AND sp.code='6-05-0114-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Психология»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Психология' AND sp.code='6-05-0313-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Образование в области физической культуры»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Образование в области физической культуры' AND sp.code='6-05-0115-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Тренерская деятельность (футбол, борьба вольная, борьба греко-римская)»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Тренерская деятельность (футбол, борьба вольная, борьба греко-римская)' AND sp.code='6-05-1012-02' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Современные иностранные языки»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Современные иностранные языки' AND sp.code='6-05-0231-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Белорусская филология»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Белорусская филология' AND sp.code='6-05-0232-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Русская филология»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Русская филология' AND sp.code='6-05-0232-02' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Романо-германская филология (английская)»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Романо-германская филология (английская)' AND sp.code='6-05-0232-04' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Романо-германская филология (немецкая)»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Романо-германская филология (немецкая)' AND sp.code='6-05-0232-04' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Дошкольное образование»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Дошкольное образование' AND sp.code='6-05-0112-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Начальное образование»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Начальное образование' AND sp.code='6-05-0112-02' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Специальное и инклюзивное образование»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Специальное и инклюзивное образование' AND sp.code='7-07-0114-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Физическая культура (Физическая подготовка военнослужащих)»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Физическая культура (Физическая подготовка военнослужащих)' AND sp.code='6-05-1012-01' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Тыловое обеспечение войск (продовольствием)»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Тыловое обеспечение войск (продовольствием)' AND sp.code='6-05-1031-02' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Тыловое обеспечение войск (вещевым имуществом)»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Тыловое обеспечение войск (вещевым имуществом)' AND sp.code='6-05-1031-02' ORDER BY s.last_name,s.first_name;"
+  },
+  {
+    "question": "Покажи студентов специальности «Тыловое обеспечение войск (горюче-смазочными материалами)»",
+    "sql": "SELECT s.last_name,s.first_name,s.group_name,sp.code FROM students s JOIN specializations sp ON s.specialization_id=sp.id WHERE sp.name='Тыловое обеспечение войск (горюче-смазочными материалами)' AND sp.code='6-05-1031-02' ORDER BY s.last_name,s.first_name;"
   }
 ]

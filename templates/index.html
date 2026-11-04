@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SQL Конструктор</title>
+    <title>SQL Конструктор · {{ university }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <main id="loginScreen" class="auth-screen">
         <form class="auth-card" id="loginForm">
-            <div class="auth-eyebrow">SQL КОНСТРУКТОР · УНИВЕРСИТЕТ</div>
+            <div class="auth-eyebrow">SQL КОНСТРУКТОР · {{ university }}</div>
             <h1>Вход в систему</h1>
             <p>Войдите, чтобы задавать вопросы к базе и сохранять свои запросы.</p>
             <label>Логин<input id="loginUsername" autocomplete="username" required maxlength="40" autofocus></label>
@@ -55,7 +55,7 @@
             </div>
             
             <div class="tab-panel active" id="structurePanel">
-                <div class="section-label">Университет · таблицы</div>
+                <div class="section-label">ГрГУ · таблицы</div>
                 <div id="schemaTree" class="schema-loading">Загрузка…</div>
             </div>
             
@@ -81,8 +81,9 @@
         
         <main class="main">
             <div class="input-zone">
+                <div class="university-context"><strong>{{ university }}</strong><span>Учебная база · Студенты, преподаватели и оценки вымышлены</span></div>
                 <div class="input-row">
-                    <textarea id="questionInput" placeholder="Например: покажи всех студентов факультета информационных технологий..."></textarea>
+                    <textarea id="questionInput" placeholder="Например: покажи студентов специальности Кибербезопасность..."></textarea>
                     <button id="sendBtn" class="btn-send" onclick="handleSend()">Сгенерировать SQL</button>
                 </div>
                 <div class="input-footer">
@@ -104,7 +105,7 @@
                             <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                         </svg>
                     </div>
-                    <p>Задайте вопрос к базе данных университета</p>
+                    <p>Задайте вопрос к учебной базе ГрГУ имени Янки Купалы</p>
                     <p class="empty-sub">Поддерживается русский и английский язык</p>
                 </div>
             </div>

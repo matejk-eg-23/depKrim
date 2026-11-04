@@ -18,6 +18,7 @@ import sqlite3
 import requests
 from sql_security import inspect_sql, run_statement
 from security_audit import register_security, issue_preview, consume_preview
+from database import CATALOG
 
 def start_ollama():
     try:
@@ -38,7 +39,7 @@ register_security(app)
 data_lock = threading.RLock()
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
-DB_PATH    = os.path.join(BASE_DIR, "university.db")
+DB_PATH    = os.path.join(BASE_DIR, "grsu.db")
 HIST_PATH  = os.path.join(BASE_DIR, "history.json")
 FAV_PATH   = os.path.join(BASE_DIR, "favorites.json")
 PROMPTS_PATH = os.path.join(BASE_DIR, "prompts.json")
@@ -102,7 +103,7 @@ def get_model():
         return "tinyllama"
 
 # ── Схема БД ────────────────────────────────────────────────────────────────
-def get_schema():
+def get_schema(question=''):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
@@ -135,13 +136,17 @@ def get_schema():
         reference_columns = {
             "faculties": "id, name, short_name",
             "departments": "id, faculty_id, name",
-            "specializations": "id, department_id, name",
+            "specializations": "id, faculty_id, department_id, name, code",
             "courses": "id, department_id, name",
         }
         if table in reference_columns and set(reference_columns[table].split(', ')) <= {col[1] for col in columns}:
             values = cursor.execute(
-                f"SELECT {reference_columns[table]} FROM {table} ORDER BY id LIMIT 20"
+                f"SELECT {reference_columns[table]} FROM {table} ORDER BY id"
             ).fetchall()
+            terms = {word[:5] for word in re.findall(r'\w+', question.casefold()) if len(word) >= 4}
+            if terms:
+                values.sort(key=lambda row: -sum(term in str(row).casefold() for term in terms))
+            values = values[:20 if table == 'faculties' else 10]
             schema_text += f"Reference values ({reference_columns[table]}): "
             schema_text += json.dumps(values, ensure_ascii=False) + "\n"
         schema_text += "\n"
@@ -171,7 +176,7 @@ def check_generated_sql(sql):
 
 
 def generate_sql(question):
-    schema_text, _ = get_schema()
+    schema_text, _ = get_schema(question)
     examples = load_json(PROMPTS_PATH)
     normalized = normalize_question(question)
     # Для известных вопросов используем проверенную пару, без случайного ответа LLM.
@@ -190,6 +195,9 @@ def generate_sql(question):
 
     prompt = f"""Ты эксперт SQLite. Напиши SQL-запрос по схеме базы и вопросу пользователя.
 
+УНИВЕРСИТЕТ: {CATALOG['name']} (Гродно, Республика Беларусь).
+Названия факультетов и специальностей взяты из официальных источников; записи студентов и оценки искусственные.
+
 СХЕМА БАЗЫ ДАННЫХ:
 {schema_text}
 
@@ -201,7 +209,11 @@ def generate_sql(question):
 - {command_rule}
 - Используй правильные имена таблиц и колонок из схемы.
 - Соединяй таблицы только по указанным FOREIGN KEY; не пропускай промежуточные таблицы.
-- Студенты связаны с факультетами через students → specializations → departments → faculties.
+- Студенты связаны с факультетами через students.specialization_id → specializations.id и specializations.faculty_id → faculties.id.
+- Поле specializations.department_id может быть NULL: не придумывай выпускающую кафедру, используй faculty_id для факультета.
+- У военного факультета есть учебные циклы (departments.unit_type = 'цикл'); для подсчёта кафедр фильтруй unit_type = 'кафедра'.
+- Экзаменационные оценки grades.score от 1 до 10; сдано от 4. У зачётов score = NULL, результат хранится в assessment_result.
+- Денежные величины выражены в BYN. Сроки обучения или годы основания с NULL означают отсутствие подтверждённых сведений.
 - Для фильтров используй значения из Reference values, не сокращай названия самостоятельно.
 - Для поиска по тексту используй LIKE '%текст%'.
 - Для дат используй формат YYYY-MM-DD.
@@ -295,7 +307,7 @@ def add_to_history(question, sql, count, success, blocked=False):
 # ── Маршруты ─────────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", university=CATALOG['short_name'])
 
 @app.route("/api/schema")
 def schema():
@@ -370,20 +382,7 @@ def execute():
 
 @app.route("/api/examples")
 def examples():
-    return jsonify({"examples": [
-        "Покажи всех студентов факультета информационных технологий",
-        "Какой средний балл по курсу Базы данных?",
-        "Сколько студентов проживает в каждом общежитии?",
-        "Покажи преподавателей, которые работают на нескольких кафедрах",
-        "Топ-5 студентов по среднему баллу за экзамены",
-        "Какие курсы требуют прохождения других курсов?",
-        "Покажи расписание занятий по кафедре кибербезопасности на понедельник",
-        "Какие студенты имеют академический отпуск?",
-        "Сколько часов занятий у каждого преподавателя?",
-        "Покажи изменения оценок с указанием кто и когда изменил",
-        "Show students from IT faculty",
-        "What is the average grade for Machine Learning course?",
-    ]})
+    return jsonify({'examples': [item['question'] for item in load_json(PROMPTS_PATH) if item.get('show_in_menu')]})
 
 # ── История (API) ────────────────────────────────────────────────────────────
 @app.route("/api/history")

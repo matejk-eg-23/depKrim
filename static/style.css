@@ -51,6 +51,9 @@
 .sandbox-result, .committed-result { padding: 16px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-border); }
 .sandbox-result p { margin: 8px 0; font-size: 12px; }
 .committed-result { background: var(--accent-light); color: var(--accent); border-color: var(--accent-dim); }
+.university-context { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-bottom: 12px; font-size: 12px; }
+.university-context strong { color: var(--accent); font-weight: 600; }
+.university-context span { color: var(--text-hint); font-size: 11px; }
 .audit-filters { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 12px; align-items: end; }
 .audit-filters label { display: grid; gap: 6px; font-size: 12px; }
 .audit-filters input, .audit-filters select { padding: 10px; border: 1px solid var(--border-mid); border-radius: 6px; font: inherit; width: 100%; min-width: 0; background: var(--bg); }

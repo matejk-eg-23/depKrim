@@ -73,6 +73,7 @@
             </div>
             <div class="account-actions">
                 <button id="adminButton" class="btn-sm hidden" onclick="showAdminPanel()">Управление пользователями</button>
+                <button id="auditButton" class="btn-sm hidden" onclick="showAuditPanel()">Журнал действий</button>
                 <button class="btn-sm" onclick="showPasswordScreen()">Сменить пароль</button>
                 <button class="btn-sm" onclick="handleLogout()">Выйти</button>
             </div>
@@ -119,10 +120,23 @@
             <label>Роль<select id="newUserRole"><option value="guest">Гость</option><option value="analyst">Аналитик</option><option value="operator">Оператор</option><option value="admin">Администратор</option></select></label>
             <button class="auth-submit" type="submit">Создать пользователя</button>
         </form>
-        <p class="auth-note">Первый вход требует смены пароля. Гость читает данные, аналитик также экспортирует. Право оператора на изменение SQL будет подключено вместе с безопасным выполнением команд. Конфиденциальные таблицы доступны только администратору.</p>
+        <p class="auth-note">Первый вход требует смены пароля. Гость читает данные, аналитик также экспортирует. Оператор и администратор изменяют данные после пробного запуска и отдельного подтверждения. Конфиденциальные таблицы и журнал доступны только администратору.</p>
         <p class="form-error" id="adminError" role="alert"></p>
         <p class="admin-message" id="adminMessage" role="status"></p>
         <div class="table-wrap"><table><thead><tr><th>Логин</th><th>Имя</th><th>Роль</th><th>Пароль</th><th>Действия</th></tr></thead><tbody id="usersBody"></tbody></table></div>
+    </dialog>
+    <dialog id="auditDialog" class="admin-dialog audit-dialog">
+        <div class="admin-heading"><div><div class="auth-eyebrow">АДМИНИСТРИРОВАНИЕ</div><h2>Журнал действий</h2></div><button class="btn-sm" onclick="document.getElementById('auditDialog').close()">Закрыть</button></div>
+        <form id="auditFilterForm" class="audit-filters">
+            <label>Логин<input id="auditUser" placeholder="Все пользователи" maxlength="40"></label>
+            <label>Действие<select id="auditAction"><option value="">Все действия</option><option value="login">Вход</option><option value="logout">Выход</option><option value="password_change">Смена пароля</option><option value="sql_generate">Генерация SQL</option><option value="sql_preview">Пробный запуск</option><option value="sql_execute">Выполнение SQL</option><option value="export">Экспорт</option><option value="user_create">Создание пользователя</option><option value="user_role_change">Изменение роли</option><option value="user_delete">Удаление пользователя</option></select></label>
+            <label>С даты<input id="auditFrom" type="date"></label>
+            <label>По дату<input id="auditTo" type="date"></label>
+            <button class="auth-submit" type="submit">Применить</button>
+        </form>
+        <p class="form-error" id="auditError" role="alert"></p>
+        <div class="table-wrap"><table><thead><tr><th>Время</th><th>Пользователь</th><th>Действие</th><th>Результат</th><th>Подробности</th><th>IP</th></tr></thead><tbody id="auditBody"></tbody></table></div>
+        <div class="audit-pagination"><button class="btn-sm" id="auditPrevious" type="button">Назад</button><span id="auditPageInfo" role="status"></span><button class="btn-sm" id="auditNext" type="button">Далее</button></div>
     </dialog>
     <script src="{{ url_for('static', filename='auth.js') }}"></script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>

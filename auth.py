@@ -67,6 +67,8 @@ def initialize_auth(app):
                 created_at TEXT NOT NULL,
                 last_login TEXT
             )''')
+            from security_audit import initialize_security_tables
+            initialize_security_tables(conn)
             if conn.execute('SELECT COUNT(*) FROM app_users').fetchone()[0] == 0:
                 password = app.config.get('INITIAL_ADMIN_PASSWORD') or secrets.token_urlsafe(16) + 'aA1!'
                 reason = validate_password(password, 'admin')

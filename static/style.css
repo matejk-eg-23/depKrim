@@ -48,6 +48,15 @@
 .admin-dialog .table-wrap { margin-top: 18px; }
 .admin-dialog td .btn-sm { margin: 3px; }
 .admin-message { color: var(--accent); margin: 12px 0; font-size: 12px; }
+.sandbox-result, .committed-result { padding: 16px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-border); }
+.sandbox-result p { margin: 8px 0; font-size: 12px; }
+.committed-result { background: var(--accent-light); color: var(--accent); border-color: var(--accent-dim); }
+.audit-filters { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 12px; align-items: end; }
+.audit-filters label { display: grid; gap: 6px; font-size: 12px; }
+.audit-filters input, .audit-filters select { padding: 10px; border: 1px solid var(--border-mid); border-radius: 6px; font: inherit; width: 100%; min-width: 0; background: var(--bg); }
+.audit-dialog td:nth-child(5) { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 240px; max-width: 400px; font-size: 11px; }
+.audit-pagination { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 16px; font-size: 12px; }
+@media (max-width: 800px) { .audit-filters { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 600px) { .auth-card { padding: 24px; } .add-user-form { grid-template-columns: 1fr; padding: 14px; } .admin-dialog { padding: 16px; } }
 
 html, body { height: 100%; font-family: var(--sans); background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }

@@ -99,7 +99,11 @@ class AuthTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 403 if role == 'guest' else 200)
                 if response.status_code == 200:
                     self.assertIn('Анна', response.get_json()['data'])
-            self.assertTrue(client.post('/api/execute', json={'sql': 'DELETE FROM students'}).get_json()['readonly_blocked'])
+            response = client.post('/api/execute', json={'sql': "UPDATE students SET first_name='Тест' WHERE id=1"}).get_json()
+            if role == 'operator':
+                self.assertTrue(response['sandbox'], response)
+            else:
+                self.assertTrue(response['readonly_blocked'], response)
         self.assertEqual(len(self.admin.get('/api/schema').get_json()['schema']), 18)
         self.assertEqual(self.admin.post('/api/execute', json={'sql': 'SELECT COUNT(*) FROM conf_student_personal'}).get_json()['rows'], [[80]])
 

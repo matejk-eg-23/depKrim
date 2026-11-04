@@ -18,7 +18,7 @@ class CSRFClient(FlaskClient):
 
 def configure_test_auth(app, directory):
     directory = Path(directory)
-    app.config.update(TESTING=True, SECRET_KEY='test-key-' * 8,
+    app.config.update(TESTING=True, RATE_LIMIT_ENABLED=False, SECRET_KEY='test-key-' * 8,
                       USERS_DB_PATH=str(directory / 'app_users.db'),
                       SESSION_KEY_PATH=str(directory / '.session-key'),
                       INITIAL_PASSWORD_PATH=str(directory / '.initial-admin-password'),

@@ -189,8 +189,8 @@ class UniversityDatabaseTests(unittest.TestCase):
                 self.assertNotIn('error', result)
                 self.assertGreater(result['count'], 0)
         before = list(self.conn.iterdump())
-        result = client.post('/api/execute', json={'sql': 'DELETE FROM students'}).get_json()
-        self.assertTrue(result['readonly_blocked'])
+        result = client.post('/api/execute', json={'sql': "UPDATE students SET first_name='Тест' WHERE id=1"}).get_json()
+        self.assertTrue(result['sandbox'])
         self.assertEqual(list(self.conn.iterdump()), before)
 
 

@@ -10,13 +10,14 @@ import csv
 import io
 import uuid
 from html import escape
-from contextlib import closing
 from datetime import datetime
 
 from flask import Flask, request, jsonify, render_template, g, has_request_context
-from auth import register_auth, initialize_auth, has_permission, PERM_VIEW_CONFIDENTIAL
+from auth import register_auth, initialize_auth, has_permission, PERM_VIEW_CONFIDENTIAL, PERM_DANGEROUS_SQL
 import sqlite3
 import requests
+from sql_security import inspect_sql, run_statement
+from security_audit import register_security, issue_preview, consume_preview
 
 def start_ollama():
     try:
@@ -33,6 +34,7 @@ app = Flask(__name__,
             template_folder='templates',
             static_folder='static')
 register_auth(app)
+register_security(app)
 data_lock = threading.RLock()
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -47,65 +49,6 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 # МОДУЛЬ БЕЗОПАСНОСТИ
 # ══════════════════════════════════════════════════════════════════════════════
 
-# ── Категории запрещённых паттернов ─────────────────────────────────────────
-
-# 1. Деструктивные DDL/DML-команды
-DESTRUCTIVE_PATTERNS = [
-    (r"^\s*(DROP)\b",      "DROP — удаление таблицы/базы запрещено"),
-    (r"^\s*(TRUNCATE)\b",  "TRUNCATE — очистка таблицы запрещена"),
-    (r"^\s*(ALTER)\b",     "ALTER — изменение схемы запрещено"),
-    (r"^\s*(CREATE)\b",    "CREATE — создание объектов запрещено"),
-    (r"^\s*(INSERT)\b",    "INSERT — вставка данных запрещена"),
-    (r"^\s*(UPDATE)\b",    "UPDATE — изменение данных запрещено"),
-    (r"^\s*(DELETE)\b",    "DELETE — удаление строк запрещено"),
-    (r"^\s*(REPLACE)\b",   "REPLACE — изменение данных запрещено"),
-    (r"^\s*(ATTACH)\b",    "ATTACH — подключение сторонних БД запрещено"),
-    (r"^\s*(DETACH)\b",    "DETACH — операция запрещена"),
-    (r"^\s*(PRAGMA)\b",    "PRAGMA — чтение/изменение настроек SQLite запрещено"),
-    (r"^\s*(VACUUM)\b",    "VACUUM — служебная операция запрещена"),
-    (r"^\s*(REINDEX)\b",   "REINDEX — служебная операция запрещена"),
-    (r"^\s*(SAVEPOINT)\b", "SAVEPOINT — управление транзакциями запрещено"),
-    (r"^\s*(ROLLBACK)\b",  "ROLLBACK — управление транзакциями запрещено"),
-    (r"^\s*(COMMIT)\b",    "COMMIT — управление транзакциями запрещено"),
-    (r"^\s*(BEGIN)\b",     "BEGIN — управление транзакциями запрещено"),
-]
-
-# 2. SQL-инъекции: тавтологии и инъекции в строки
-INJECTION_PATTERNS = [
-    # Тавтологии в WHERE/HAVING без предшествующего AND/OR тоже опасны:
-    #   WHERE 1=1  /  WHERE 1='1'  /  WHERE 'a'='a'  /  WHERE TRUE
-    (r"\bWHERE\s+(1\s*=\s*1|1\s*=\s*'1'|'[^']*'\s*=\s*'[^']*'|TRUE|FALSE)\b",
-     "Тавтология в WHERE (WHERE 1=1 / WHERE TRUE) — классическая инъекция"),
-    # OR/AND тавтологии в любом месте:  OR '1'='1' / OR 1=1 / OR TRUE
-    (r"(\bOR\b|\bAND\b)\s+(['\"0-9(].*?['\"]?\s*=\s*['\"0-9])",
-     "Тавтологическая инъекция (OR/AND '1'='1' / OR 1=1)"),
-    (r"(\bOR\b|\bAND\b)\s+(TRUE|FALSE|1\s*=\s*1|0\s*=\s*0)\b",
-     "Тавтологическая инъекция (OR TRUE / OR 1=1)"),
-    # Числовые тавтологии в любом контексте: 1=1, 2=2 и т.п.
-    (r"\b([0-9]+)\s*=\s*\1\b",
-     "Числовая тавтология (N=N) — инъекция обхода фильтра"),
-    # Строковые тавтологии: 'x'='x', 'a'='a'
-    (r"'([^']+)'\s*=\s*'\1'",
-     "Строковая тавтология ('x'='x') — инъекция обхода фильтра"),
-    # Классический комментарий для обрезки запроса
-    (r"--\s*$",
-     "Инъекция через SQL-комментарий (--) в конце запроса"),
-    # Inline-комментарии /**/
-    (r"/\*.*?\*/",
-     "Инъекция через блочный комментарий (/**/)"),
-    # Несколько запросов через точку с запятой (stacked queries)
-    (r";.+",
-     "Stacked-запросы (несколько команд через ;) запрещены"),
-    # Попытка внедрения через hex/char
-    (r"\b(CHAR|CHR|HEX|UNHEX|FROM_BASE64|TO_BASE64)\s*\(",
-     "Кодирование строк (CHAR/HEX) — возможная инъекция"),
-    # Конкатенация строк для обхода фильтров
-    (r"'\s*\|\|\s*'",
-     "Конкатенация строк через || — возможная инъекция"),
-]
-
-# ── Паттерны для проверки ВОПРОСА пользователя (до генерации SQL) ───────────
-# Ловим попытки инъекций прямо в тексте вопроса
 QUESTION_INJECTION_PATTERNS = [
     (r"'\s*(OR|AND)\s+'?[0-9]",          "Инъекция в вопросе: ' OR/AND '1'"),
     (r"'\s*(OR|AND)\s+'\w+'\s*=\s*'\w*", "Инъекция в вопросе: ' OR 'x'='x'"),
@@ -120,64 +63,6 @@ QUESTION_INJECTION_PATTERNS = [
     (r"\bSLEEP\s*\(",                    "SLEEP() в вопросе — попытка DoS"),
 ]
 
-# 3. UNION-атаки
-UNION_PATTERNS = [
-    (r"\bUNION\b\s+(ALL\s+)?SELECT\b",
-     "UNION SELECT — попытка объединения данных из сторонних таблиц"),
-]
-
-# 4. Blind SQLi / разведка структуры БД
-RECON_PATTERNS = [
-    (r"\bsqlite_master\b",
-     "Обращение к sqlite_master — разведка структуры БД запрещена"),
-    (r"\bsqlite_schema\b",
-     "Обращение к sqlite_schema — разведка структуры БД запрещена"),
-    (r"\bsqlite_temp_master\b",
-     "Обращение к sqlite_temp_master запрещено"),
-    (r"\binformation_schema\b",
-     "Обращение к information_schema — разведка структуры БД запрещена"),
-    (r"\bpg_catalog\b",
-     "Обращение к системным каталогам запрещено"),
-    # Blind SQLi через условные функции
-    (r"\bIF\s*\(\s*(SELECT|EXISTS)\b",
-     "Blind SQLi через IF(SELECT...) — запрещено"),
-    (r"\bCASE\s+WHEN\s+.*\bSELECT\b",
-     "Blind SQLi через CASE WHEN SELECT — запрещено"),
-    # Утечка данных через subquery в системные объекты
-    (r"SELECT\b.*\bFROM\b.*\bsqlite_",
-     "SELECT из системных таблиц SQLite запрещён"),
-]
-
-# 5. DoS-атаки на ресурсы
-DOS_PATTERNS = [
-    # Функции задержки
-    (r"\bSLEEP\s*\(",          "SLEEP() — DoS-атака задержкой запрещена"),
-    (r"\bBENCHMARK\s*\(",      "BENCHMARK() — DoS-атака запрещена"),
-    (r"\bWAITFOR\s+DELAY\b",   "WAITFOR DELAY — DoS-атака запрещена"),
-    (r"\bHEAVY_QUERY\b",       "HEAVY_QUERY — DoS-атака запрещена"),
-    # Рекурсивные CTE без ограничений (потенциальный infinite loop)
-    (r"\bWITH\s+RECURSIVE\b",  "WITH RECURSIVE — рекурсивные CTE запрещены (DoS-риск)"),
-    # Картезианское произведение без WHERE (cross join)
-    (r"\bCROSS\s+JOIN\b(?!.*\bON\b)(?!.*\bWHERE\b)",
-     "CROSS JOIN без условия — высокая нагрузка, запрещено"),
-    # Чрезмерно большой LIMIT
-    (r"\bLIMIT\s+([0-9]{6,})\b",
-     "LIMIT > 999999 — слишком большая выборка запрещена"),
-    # Подзапросы глубже 3 уровней — эвристика через подсчёт SELECT
-    # (обрабатывается отдельно ниже в validate_sql)
-]
-
-# 6. Файловые операции SQLite
-FILE_PATTERNS = [
-    (r"\bLOAD_FILE\s*\(",      "LOAD_FILE() — чтение файлов запрещено"),
-    (r"\bINTO\s+OUTFILE\b",    "INTO OUTFILE — запись файлов запрещена"),
-    (r"\bINTO\s+DUMPFILE\b",   "INTO DUMPFILE — запись файлов запрещена"),
-    (r"\bATTACH\s+DATABASE\b", "ATTACH DATABASE — подключение сторонних БД запрещено"),
-    (r"\breadfile\s*\(",       "readfile() — чтение файлов запрещено"),
-    (r"\bwritefile\s*\(",      "writefile() — запись файлов запрещена"),
-]
-
-
 def validate_question(question: str) -> tuple[bool, str]:
     """
     Проверяет вопрос пользователя на попытки инъекций ДО передачи в LLM.
@@ -190,49 +75,13 @@ def validate_question(question: str) -> tuple[bool, str]:
     return True, ""
 
 
-def validate_sql(sql: str) -> tuple[bool, str]:
-    """
-    Многоуровневая проверка SQL на безопасность.
-    Возвращает (is_safe: bool, reason: str).
-    """
-    sql_upper = sql.upper().strip()
-    sql_clean = sql.strip()
+def can_modify_sql():
+    return has_request_context() and has_permission(PERM_DANGEROUS_SQL)
 
-    # ── Уровень 0: запрос должен начинаться с SELECT или WITH (не рекурсивным) ──
-    if not re.match(r"^\s*(SELECT|WITH)\b", sql_upper):
-        return False, "Разрешены только SELECT-запросы"
 
-    # ── Проверяем все категории паттернов ────────────────────────────────────
-    all_pattern_groups = [
-        DESTRUCTIVE_PATTERNS,
-        INJECTION_PATTERNS,
-        UNION_PATTERNS,
-        RECON_PATTERNS,
-        DOS_PATTERNS,
-        FILE_PATTERNS,
-    ]
-
-    for group in all_pattern_groups:
-        for pattern, reason in group:
-            if re.search(pattern, sql_upper, re.IGNORECASE | re.DOTALL):
-                return False, f" Запрос заблокирован: {reason}"
-
-    # ── Уровень 1: ограничение глубины вложенности подзапросов ───────────────
-    select_count = len(re.findall(r"\bSELECT\b", sql_upper))
-    if select_count > 4:
-        return False, " Запрос заблокирован: слишком высокая вложенность подзапросов (> 4 SELECT)"
-
-    # ── Уровень 2: ограничение количества JOIN без WHERE ─────────────────────
-    join_count = len(re.findall(r"\bJOIN\b", sql_upper))
-    has_where  = bool(re.search(r"\bWHERE\b", sql_upper))
-    if join_count >= 3 and not has_where:
-        return False, " Запрос заблокирован: множественные JOIN без WHERE — риск высокой нагрузки"
-
-    # ── Уровень 3: длина запроса (против очень длинных инъекций) ─────────────
-    if len(sql_clean) > 2000:
-        return False, " Запрос заблокирован: длина запроса превышает допустимый лимит (2000 символов)"
-
-    return True, ""
+def validate_sql(sql):
+    _, reason = inspect_sql(sql, can_modify_sql())
+    return not reason, reason
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -267,9 +116,10 @@ def get_schema():
     for table in tables:
         if table.casefold().startswith('conf_') and not can_view_confidential():
             continue
-        cursor.execute(f"PRAGMA table_info({table});")
+        quoted_table = '"' + table.replace('"', '""') + '"'
+        cursor.execute(f"PRAGMA table_info({quoted_table});")
         columns = cursor.fetchall()
-        cursor.execute(f"SELECT COUNT(*) FROM {table};")
+        cursor.execute(f"SELECT COUNT(*) FROM {quoted_table};")
         row_count = cursor.fetchone()[0]
 
         schema_text += f"Table: {table}\nColumns:\n"
@@ -278,7 +128,7 @@ def get_schema():
             if col[5]:
                 schema_text += " PRIMARY KEY"
             schema_text += "\n"
-        cursor.execute(f"PRAGMA foreign_key_list({table});")
+        cursor.execute(f"PRAGMA foreign_key_list({quoted_table});")
         for fk in cursor.fetchall():
             schema_text += f"  FOREIGN KEY ({fk[3]}) REFERENCES {fk[2]}({fk[4]})\n"
         # Только небольшие публичные справочники, без персональных данных.
@@ -288,7 +138,7 @@ def get_schema():
             "specializations": "id, department_id, name",
             "courses": "id, department_id, name",
         }
-        if table in reference_columns:
+        if table in reference_columns and set(reference_columns[table].split(', ')) <= {col[1] for col in columns}:
             values = cursor.execute(
                 f"SELECT {reference_columns[table]} FROM {table} ORDER BY id LIMIT 20"
             ).fetchall()
@@ -313,31 +163,11 @@ def can_view_confidential():
     return has_request_context() and has_permission(PERM_VIEW_CONFIDENTIAL)
 
 
-def protect_confidential_reads(conn):
-    allowed = can_view_confidential()
-
-    def authorize(action, table, column, database, source):
-        if action == sqlite3.SQLITE_READ and (table or '').casefold().startswith('conf_') and not allowed:
-            return sqlite3.SQLITE_DENY
-        return sqlite3.SQLITE_OK
-
-    conn.set_authorizer(authorize)
-
-
 def check_generated_sql(sql):
-    """Проверяет ограничения и компилирует SQL без выполнения запроса."""
-    safe, reason = validate_sql(sql)
-    if not safe:
-        return False, reason
-    try:
-        from pathlib import Path
-        with closing(sqlite3.connect(Path(DB_PATH).resolve().as_uri() + "?mode=ro", uri=True)) as conn:
-            conn.execute("PRAGMA query_only = ON")
-            protect_confidential_reads(conn)
-            conn.execute("EXPLAIN " + sql)
-        return True, ""
-    except sqlite3.Error as exc:
-        return False, str(exc)
+    result = run_statement(DB_PATH, sql, allow_write=can_modify_sql(),
+                           confidential=can_view_confidential(), explain=True,
+                           timeout=app.config['SQL_TIMEOUT_SECONDS'])
+    return not (result.get('error') or result.get('security_blocked')), result.get('error', result.get('message', ''))
 
 
 def generate_sql(question):
@@ -356,6 +186,7 @@ def generate_sql(question):
     relevant = [ex for ex in ranked if words & set(normalize_question(ex["question"]).split())][:3]
     examples_text = "\n\n".join(f"Вопрос: {ex['question']}\nSQL: {ex['sql']}" for ex in relevant)
     model = get_model()
+    command_rule = ('Разрешены SELECT и команды INSERT/UPDATE/DELETE/CREATE TABLE/CREATE INDEX/ALTER TABLE/DROP TABLE/DROP INDEX. Изменения сначала проходят пробный запуск.' if can_modify_sql() else 'Разрешено только чтение: SELECT или WITH ... SELECT.')
 
     prompt = f"""Ты эксперт SQLite. Напиши SQL-запрос по схеме базы и вопросу пользователя.
 
@@ -367,7 +198,7 @@ def generate_sql(question):
 
 ПРАВИЛА (ОБЯЗАТЕЛЬНО):
 - Отвечай ТОЛЬКО чистым SQL кодом, без объяснений, без markdown, без ```.
-- Запрос должен начинаться с SELECT.
+- {command_rule}
 - Используй правильные имена таблиц и колонок из схемы.
 - Соединяй таблицы только по указанным FOREIGN KEY; не пропускай промежуточные таблицы.
 - Студенты связаны с факультетами через students → specializations → departments → faculties.
@@ -410,52 +241,23 @@ SQL:"""
         return {"sql": "", "error": str(e), "model": model}
 
 # ── Выполнение SQL ───────────────────────────────────────────────────────────
-def execute_sql(sql):
-    sql_stripped = sql.strip()
-    sql_upper    = sql_stripped.upper()
+def execute_sql(sql, confirmation_token=None):
+    expected = None
+    if confirmation_token is not None:
+        if not can_modify_sql():
+            return {'security_blocked': True, 'message': 'Недостаточно прав для изменения данных', 'status': 403}
+        expected = consume_preview(confirmation_token, sql)
+        if expected is None:
+            return {'error': 'Подтверждение недействительно или истекло. Выполните пробный запуск заново.', 'status': 409}
+    result = run_statement(DB_PATH, sql, allow_write=can_modify_sql(),
+                           confidential=can_view_confidential(),
+                           timeout=app.config['SQL_TIMEOUT_SECONDS'],
+                           preview=confirmation_token is None, expected_fingerprint=expected)
+    fingerprint = result.pop('fingerprint', None)
+    if fingerprint and has_request_context():
+        result['confirmation_token'] = issue_preview(sql, fingerprint)
+    return result
 
-    # ── Проверка на изменяющие операции (показываем SQL, но не выполняем) ────
-    modifying = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "TRUNCATE", "CREATE"]
-    for word in modifying:
-        if re.search(rf"^\s*{word}\b", sql_upper):
-            return {
-                "readonly_blocked": True,
-                "message": f"Запрос сгенерирован, но не выполнен — операция {word} изменяет базу данных и заблокирована в целях безопасности.",
-            }
-
-    # ── Многоуровневая проверка безопасности ─────────────────────────────────
-    is_safe, reason = validate_sql(sql_stripped)
-    if not is_safe:
-        return {"security_blocked": True, "message": reason}
-
-    # ── Выполнение в режиме только чтения ────────────────────────────────────
-    try:
-        # uri=True + mode=ro гарантирует, что даже при обходе фильтров
-        # SQLite не позволит изменить файл БД на уровне ОС
-        from pathlib import Path
-        with closing(sqlite3.connect(Path(DB_PATH).resolve().as_uri() + '?mode=ro', uri=True)) as conn:
-            conn.row_factory = sqlite3.Row
-            conn.execute("PRAGMA query_only = ON;")
-            protect_confidential_reads(conn)
-            cursor = conn.execute(sql_stripped)
-            rows = cursor.fetchmany(1000)
-
-        if not rows:
-            return {"columns": [], "rows": [], "count": 0}
-
-        columns = list(rows[0].keys())
-        data    = [list(row) for row in rows]
-        return {"columns": columns, "rows": data, "count": len(data)}
-
-    except sqlite3.DatabaseError as e:
-        err_msg = str(e)
-        if 'prohibited' in err_msg or 'not authorized' in err_msg:
-            return {"security_blocked": True, "permission_denied": True,
-                    "message": "Недостаточно прав для чтения конфиденциальных таблиц"}
-        # Не раскрываем детали схемы в сообщениях об ошибках
-        if "no such table" in err_msg or "no such column" in err_msg:
-            return {"error": "Ошибка SQL: указанная таблица или колонка не существует"}
-        return {"error": f"Ошибка SQL: {err_msg}"}
 
 # ── История ──────────────────────────────────────────────────────────────────
 def load_json(path):
@@ -537,6 +339,7 @@ def generate():
         return jsonify({"error": gen["error"]}), 500
 
     result  = execute_sql(gen["sql"])
+    result_status = result.pop("status", 200)
     blocked = result.get("security_blocked") or result.get("readonly_blocked")
     success = "error" not in result and not blocked
     count   = result.get("count", 0)
@@ -548,7 +351,7 @@ def generate():
         "sql":      gen["sql"],
         "model":    gen["model"],
         "result":   result,
-    })
+    }), result_status
 
 @app.route("/api/execute", methods=["POST"])
 def execute():
@@ -561,8 +364,9 @@ def execute():
     if len(sql) > 2000:
         return jsonify({"error": "SQL-запрос слишком длинный (максимум 2000 символов)"}), 400
 
-    result = execute_sql(sql)
-    return jsonify(result), 403 if result.get('permission_denied') else 200
+    result = execute_sql(sql, data.get('confirmation_token'))
+    status = result.pop('status', 200)
+    return jsonify(result), status
 
 @app.route("/api/examples")
 def examples():

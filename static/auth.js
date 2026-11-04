@@ -5,7 +5,7 @@ const roleNames = {guest: 'Гость', analyst: 'Аналитик', operator: '
 function showAuthScreen(id) {
     if (id === 'loginScreen') {
         currentUser = null;
-        for (const element of ['historyList', 'favoritesList', 'schemaTree', 'examplesDropdown', 'resultsZone', 'usersBody']) {
+        for (const element of ['historyList', 'favoritesList', 'schemaTree', 'examplesDropdown', 'resultsZone', 'usersBody', 'auditBody']) {
             document.getElementById(element).replaceChildren();
         }
         const empty = document.createElement('div');
@@ -15,12 +15,14 @@ function showAuthScreen(id) {
         document.getElementById('resultsZone').append(empty);
         for (const key of Object.keys(window)) if (key.startsWith('tdexp_')) delete window[key];
         if (typeof currentSQL !== 'undefined') currentSQL = '';
+        if (typeof pendingConfirmations !== 'undefined') pendingConfirmations.clear();
         if (typeof closeModal === 'function') closeModal();
     }
     for (const screen of ['loginScreen', 'passwordScreen', 'mainApp']) {
         document.getElementById(screen).classList.toggle('hidden', screen !== id);
     }
     document.getElementById('adminDialog').close();
+    document.getElementById('auditDialog').close();
 }
 
 async function apiFetch(url, options = {}) {
@@ -49,6 +51,7 @@ function showMainApp() {
     showAuthScreen('mainApp');
     document.getElementById('currentUserName').textContent = `${currentUser.display_name} · ${currentUser.role_name}`;
     document.getElementById('adminButton').classList.toggle('hidden', !(currentUser.permissions & 8));
+    document.getElementById('auditButton').classList.toggle('hidden', currentUser.role !== 'admin');
     loadSchema();
     loadExamples();
 }
@@ -194,3 +197,53 @@ document.getElementById('addUserForm').addEventListener('submit', async event =>
 });
 
 document.addEventListener('DOMContentLoaded', checkAuth);
+
+let auditPage = 1;
+const auditActionNames = {login: 'Вход', logout: 'Выход', password_change: 'Смена пароля',
+    sql_generate: 'Генерация SQL', sql_preview: 'Пробный запуск', sql_execute: 'Выполнение SQL',
+    export: 'Экспорт', user_create: 'Создание пользователя', user_role_change: 'Изменение роли', user_delete: 'Удаление пользователя'};
+const auditOutcomes = {success: 'Успешно', error: 'Ошибка', blocked: 'Заблокировано', preview: 'Откат', committed: 'Сохранено'};
+
+async function loadAudit(page = 1) {
+    const query = new URLSearchParams({page, limit: 50});
+    for (const [id, parameter] of [['auditUser', 'user'], ['auditAction', 'action'], ['auditFrom', 'date_from'], ['auditTo', 'date_to']]) {
+        const value = document.getElementById(id).value.trim();
+        if (value) query.set(parameter, value);
+    }
+    document.getElementById('auditError').textContent = '';
+    try {
+        const response = await apiFetch('/api/admin/audit?' + query);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Журнал недоступен');
+        auditPage = data.page;
+        const body = document.getElementById('auditBody');
+        body.replaceChildren();
+        for (const log of data.logs) {
+            const row = document.createElement('tr');
+            for (const value of [new Date(log.timestamp).toLocaleString('ru-RU'), log.username || 'Без входа',
+                auditActionNames[log.action] || log.action, `${auditOutcomes[log.details.outcome] || ''} · ${log.status_code}`,
+                JSON.stringify(log.details, null, 2), log.ip_address]) {
+                row.insertCell().textContent = value;
+            }
+            body.append(row);
+        }
+        if (!data.logs.length) {
+            const row = body.insertRow();
+            const cell = row.insertCell();
+            cell.colSpan = 6;
+            cell.textContent = 'Записей по выбранным фильтрам нет';
+        }
+        document.getElementById('auditPageInfo').textContent = `Страница ${data.page} · Всего записей: ${data.total}`;
+        document.getElementById('auditPrevious').disabled = data.page <= 1;
+        document.getElementById('auditNext').disabled = data.page * data.limit >= data.total;
+    } catch (error) { document.getElementById('auditError').textContent = error.message; }
+}
+
+async function showAuditPanel() {
+    document.getElementById('auditDialog').showModal();
+    await loadAudit();
+}
+
+document.getElementById('auditFilterForm').addEventListener('submit', event => { event.preventDefault(); loadAudit(); });
+document.getElementById('auditPrevious').addEventListener('click', () => loadAudit(auditPage - 1));
+document.getElementById('auditNext').addEventListener('click', () => loadAudit(auditPage + 1));

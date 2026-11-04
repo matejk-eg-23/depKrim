@@ -5,7 +5,7 @@ async function loadSchema() {
         const data = await res.json();
         if (data.error) {
             document.getElementById("schemaTree").innerHTML =
-                `<div class="schema-error">${data.error}</div>`;
+                `<div class="schema-error">${escapeHtml(data.error)}</div>`;
             return;
         }
         renderSchema(data.schema);
@@ -29,15 +29,15 @@ function renderSchema(schema) {
         const colsHtml = info.columns.map(col => `
             <div class="col-row">
                 ${col.pk ? '<span class="col-pk">PK</span>' : '<span class="col-spacer"></span>'}
-                <span class="col-name">${col.name}</span>
-                <span class="col-type">${col.type}</span>
+                <span class="col-name">${escapeHtml(col.name)}</span>
+                <span class="col-type">${escapeHtml(col.type)}</span>
             </div>
         `).join("");
 
         item.innerHTML = `
             <div class="table-header" onclick="toggleTable(this)">
                 <span class="table-dot"></span>
-                <span class="table-name">${tableName}</span>
+                <span class="table-name">${escapeHtml(tableName)}</span>
                 <span class="table-count">${info.row_count}</span>
                 <span class="table-chevron">&#9654;</span>
             </div>
@@ -299,80 +299,76 @@ document.getElementById("questionInput").addEventListener("keydown", function (e
 });
 
 // ─── Отображение результата ───────────────────────────
-function renderResult(data) {
-    const zone = document.getElementById("resultsZone");
-    const card = document.createElement("div");
-    card.className = "result-card";
-    const sqlId = "sql_" + Date.now();
-    const tblId = "tbl_" + Date.now();
+const pendingConfirmations = new Map();
 
-    let html = `<div class="card-question">
-        <span class="q-dot"></span>
-        <span>${escapeHtml(data.question)}</span>
-    </div>`;
-
-    if (data.sql) {
-        html += `<div class="sql-block">
-            <div class="block-label">Сгенерированный SQL</div>
-            <textarea class="sql-textarea" id="${sqlId}" spellcheck="false">${escapeHtml(data.sql)}</textarea>
-            <div class="sql-actions">
-                <button class="btn-sm primary" onclick="runSQL('${sqlId}', '${tblId}')">Выполнить</button>
-                <button class="btn-sm" onclick="copySQL('${sqlId}', this)">Копировать</button>
-                <button class="btn-sm star" onclick="addToFavorites('${escapeHtml(data.question)}', '${data.sql.replace(/'/g, "\\'")}')">★ В избранное</button>
-            </div>
-        </div>`;
+function renderExecution(result, sqlId, tblId, executedSQL) {
+    const block = document.getElementById(tblId);
+    pendingConfirmations.delete(tblId);
+    if (result.security_blocked || result.readonly_blocked) {
+        block.innerHTML = `<div class="security-block"><span>${escapeHtml(result.message)}</span></div>`;
+    } else if (result.error) {
+        block.innerHTML = `<div class="error-block">${escapeHtml(result.error)}</div>`;
+    } else if (result.sandbox) {
+        const effect = ['INSERT', 'UPDATE', 'DELETE'].includes(result.statement_type)
+            ? `Затронуто строк: ${result.affected_rows}.` : 'Изменение структуры базы данных.';
+        block.innerHTML = `<div class="sandbox-result"><strong>Пробный запуск: изменения отменены</strong><p>Оператор: ${escapeHtml(result.statement_type)}. ${effect}</p><p>Проверьте SQL. Чтобы сохранить изменения, нажмите кнопку ниже. Подтверждение действует 2 минуты.</p></div>`;
+        pendingConfirmations.set(tblId, {sql: executedSQL, token: result.confirmation_token});
+        const button = document.createElement('button');
+        button.className = 'btn-sm primary';
+        button.textContent = 'Сохранить изменения';
+        button.addEventListener('click', () => confirmSQL(sqlId, tblId, button));
+        block.querySelector('.sandbox-result').append(button);
+    } else if (result.committed) {
+        const effect = ['INSERT', 'UPDATE', 'DELETE'].includes(result.statement_type)
+            ? `Затронуто строк: ${result.affected_rows}.` : 'Структура базы обновлена.';
+        block.innerHTML = `<div class="committed-result">Изменения сохранены. ${effect}</div>`;
+        loadSchema();
+    } else if (result.columns?.length) {
+        block.innerHTML = buildTable(result);
+    } else {
+        block.innerHTML = '<div class="no-rows">Запрос выполнен — строк не найдено.</div>';
     }
-
-    if (data.error) {
-        html += `<div class="error-block">${escapeHtml(data.error)}</div>`;
-    } else if (data.result?.error) {
-        html += `<div class="error-block">${escapeHtml(data.result.error)}</div>`;
-    } else if (data.result?.security_blocked) {
-        // ── Новый блок: визуальное отображение блокировки безопасности ──
-        html += `<div class="security-block">
-            <span class="security-icon"></span>
-            <span>${escapeHtml(data.result.message)}</span>
-        </div>`;
-    } else if (data.result?.readonly_blocked) {
-        html += `<div class="warn-block">${data.result.message}</div>`;
-    } else if (data.result?.columns?.length > 0) {
-        html += `<div class="table-block" id="${tblId}">${buildTable(data.result)}</div>`;
-    } else if (data.result) {
-        html += `<div class="table-block" id="${tblId}">
-            <div class="no-rows">Запрос выполнен — строк не найдено.</div>
-        </div>`;
-    }
-
-    card.innerHTML = html;
-    zone.insertBefore(card, zone.firstChild);
 }
 
-// ─── Повторное выполнение SQL ─────────────────────────
+function renderResult(data) {
+    const zone = document.getElementById('resultsZone');
+    const card = document.createElement('div');
+    card.className = 'result-card';
+    const suffix = crypto.randomUUID();
+    const sqlId = 'sql_' + suffix;
+    const tblId = 'tbl_' + suffix;
+    let html = `<div class="card-question"><span class="q-dot"></span><span>${escapeHtml(data.question || 'Результат запроса')}</span></div>`;
+    if (data.sql) {
+        html += `<div class="sql-block"><div class="block-label">Сгенерированный SQL</div><textarea class="sql-textarea" id="${sqlId}" spellcheck="false">${escapeHtml(data.sql)}</textarea><div class="sql-actions"><button class="btn-sm primary" onclick="runSQL('${sqlId}', '${tblId}')">Проверить / выполнить</button><button class="btn-sm" onclick="copySQL('${sqlId}', this)">Копировать</button><button class="btn-sm star" data-favorite>★ В избранное</button></div></div>`;
+    }
+    html += `<div class="table-block" id="${tblId}"></div>`;
+    card.innerHTML = html;
+    zone.insertBefore(card, zone.firstChild);
+    card.querySelector('[data-favorite]')?.addEventListener('click', () => addToFavorites(data.question, document.getElementById(sqlId).value));
+    renderExecution(data.error ? {error: data.error} : data.result || {}, sqlId, tblId, data.sql);
+}
+
 async function runSQL(sqlId, tblId) {
     const sql = document.getElementById(sqlId).value.trim();
     if (!sql) return;
-
     try {
-        const res = await apiFetch("/api/execute", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sql })
-        });
-        const data = await res.json();
-        const block = document.getElementById(tblId);
+        const response = await apiFetch('/api/execute', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({sql})});
+        renderExecution(await response.json(), sqlId, tblId, sql);
+    } catch { showError('Не удалось подключиться к серверу'); }
+}
 
-        if (data.security_blocked) {
-            block.innerHTML = `<div class="security-block" style="margin:0"><span class="security-icon"></span><span>${escapeHtml(data.message)}</span></div>`;
-        } else if (data.error) {
-            block.innerHTML = `<div class="error-block" style="margin:0">${escapeHtml(data.error)}</div>`;
-        } else if (data.columns?.length > 0) {
-            block.innerHTML = buildTable(data);
-        } else {
-            block.innerHTML = '<div class="no-rows">Запрос выполнен — строк не найдено.</div>';
-        }
-    } catch {
-        alert("Ошибка соединения с сервером");
+async function confirmSQL(sqlId, tblId, button) {
+    const preview = pendingConfirmations.get(tblId);
+    if (!preview || preview.sql.trim() !== document.getElementById(sqlId).value.trim()) {
+        showError('SQL изменён. Сначала выполните пробный запуск заново.');
+        return;
     }
+    button.disabled = true;
+    try {
+        const response = await apiFetch('/api/execute', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({sql: preview.sql, confirmation_token: preview.token})});
+        renderExecution(await response.json(), sqlId, tblId, preview.sql);
+    } catch { showError('Не удалось получить результат. Проверьте журнал перед повторным выполнением.'); }
+    finally { button.disabled = false; }
 }
 
 function copySQL(sqlId, btn) {

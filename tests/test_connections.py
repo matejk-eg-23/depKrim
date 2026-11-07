@@ -53,6 +53,9 @@ class ConnectionTests(unittest.TestCase):
         schema = self.admin.get('/api/schema').get_json()
         self.assertEqual(schema['connection']['id'], identifier)
         self.assertEqual(set(schema['schema']), {'books', 'loans'})
+        self.assertEqual(schema['schema']['loans']['foreign_keys'], [
+            {'table': 'books', 'columns': ['book_id'], 'referred_columns': ['id']},
+        ])
         result = self.admin.post('/api/execute', json={'sql': 'SELECT * FROM books'}).get_json()
         self.assertEqual(result['rows'], [[1, 'Библиотека']])
         for sql in ['UPDATE books SET title=\'oops\'', 'DROP TABLE books', 'SELECT * INTO OUTFILE \'oops\' FROM books', 'SELECT evil_function()']:

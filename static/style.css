@@ -369,3 +369,30 @@ tr:hover td { background: var(--bg); }
 .connection-form label { display: grid; gap: 5px; }
 .connection-form input, .connection-form select { padding: 10px; border: 1px solid #ccc; border-radius: 6px; width: 100%; box-sizing: border-box; }
 .connection-server { grid-template-columns: 2fr 1fr; }
+
+.schema-diagram-button { margin-bottom: 10px; }
+.schema-dialog { width: min(1240px, calc(100% - 24px)); }
+.schema-diagram-tools { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 14px 0 8px; }
+.schema-diagram-tools label { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.schema-diagram-tools select { max-width: min(250px, 50vw); padding: 6px; border: 1px solid var(--border-mid); border-radius: 5px; font: inherit; }
+.schema-zoom { display: flex; gap: 4px; }
+.schema-diagram-status, .schema-diagram-details { color: var(--text-dim); font-size: 13px; margin: 8px 0; }
+.schema-diagram-viewport { height: min(50vh, 560px); overflow: auto; border: 1px solid var(--border); border-radius: 8px; background-color: #f5f7f4; background-image: radial-gradient(#d8e0d7 1px, transparent 1px); background-size: 16px 16px; }
+.schema-diagram-viewport svg { display: block; }
+.schema-diagram-details { max-height: 90px; overflow: auto; overflow-wrap: anywhere; }
+.schema-diagram-details ul { padding-left: 20px; }
+.schema-card { cursor: pointer; }
+.schema-card-box { fill: white; stroke: #aabbb0; stroke-width: 1.3; }
+.schema-card-divider { stroke: #dbe5dd; }
+.schema-card:hover .schema-card-box, .schema-card:focus-visible .schema-card-box, .schema-card.selected .schema-card-box { stroke: var(--accent); stroke-width: 2.5; }
+.schema-card.selected .schema-card-box { fill: #f0faf2; }
+.schema-card-title { fill: #1a3828; font: 600 14px var(--mono); }
+.schema-card-field { fill: var(--text); font: 12px var(--mono); }
+.schema-card-type { fill: #56675e; font: 11px var(--mono); }
+.schema-card-key { fill: var(--accent); font: 600 11px var(--mono); }
+.schema-card.muted { opacity: .48; }
+.schema-edge { fill: none; stroke: #83988d; stroke-width: 1.5; }
+.schema-edge.muted { opacity: .17; }
+.schema-edge.highlighted { stroke: #19724a; stroke-width: 2.5; }
+.schema-arrow { fill: #83988d; }
+.schema-arrow.active { fill: #19724a; }

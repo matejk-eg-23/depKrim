@@ -4,6 +4,7 @@ let activeDatabaseRequests = 0;
 const roleNames = {guest: 'Гость', analyst: 'Аналитик', operator: 'Оператор', admin: 'Администратор'};
 
 function showAuthScreen(id) {
+    resetSchemaDiagram();
     if (id === 'loginScreen') {
         currentUser = null;
         for (const element of ['historyList', 'favoritesList', 'schemaTree', 'examplesDropdown', 'resultsZone', 'usersBody', 'auditBody']) {

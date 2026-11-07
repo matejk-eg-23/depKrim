@@ -56,6 +56,7 @@
             
             <div class="tab-panel active" id="structurePanel">
                 <div class="section-label" id="schemaLabel">ГрГУ · таблицы</div>
+                <button id="schemaDiagramButton" class="btn-sm schema-diagram-button" type="button">Диаграмма связей</button>
                 <div id="schemaTree" class="schema-loading">Загрузка…</div>
             </div>
             
@@ -161,6 +162,28 @@
         <p class="form-error" id="connectionError" role="alert"></p>
         <p id="connectionStatus" role="status"></p>
     </dialog>
+    <dialog id="schemaDiagram" class="admin-dialog schema-dialog" aria-labelledby="schemaDiagramTitle">
+        <div class="admin-heading">
+            <div><div class="auth-eyebrow" id="schemaDiagramSource"></div><h2 id="schemaDiagramTitle">Диаграмма связей</h2></div>
+            <button class="btn-sm" id="schemaDiagramClose" type="button">Закрыть</button>
+        </div>
+        <div class="schema-diagram-tools">
+            <label>Таблица <select id="schemaDiagramTable"></select></label>
+            <label><input type="checkbox" id="schemaDiagramNeighbors"> Только связанные</label>
+            <div class="schema-zoom">
+                <button class="btn-sm" id="schemaZoomOut" type="button" aria-label="Уменьшить масштаб">−</button>
+                <button class="btn-sm" id="schemaZoomReset" type="button" title="Вернуть исходный масштаб">100%</button>
+                <button class="btn-sm" id="schemaZoomIn" type="button" aria-label="Увеличить масштаб">+</button>
+            </div>
+            <button class="btn-sm" id="schemaDiagramRefresh" type="button">Обновить схему</button>
+        </div>
+        <p class="schema-diagram-status" id="schemaDiagramStatus" role="status"></p>
+        <div class="schema-diagram-viewport" id="schemaDiagramViewport" tabindex="0" aria-label="Прокручиваемая схема таблиц">
+            <svg id="schemaDiagramSvg" role="group" aria-label="Таблицы и внешние ключи"></svg>
+        </div>
+        <div class="schema-diagram-details" id="schemaDiagramDetails" aria-live="polite"></div>
+    </dialog>
+    <script src="{{ url_for('static', filename='schema_diagram.js') }}"></script>
     <script src="{{ url_for('static', filename='connections.js') }}"></script>
     <script src="{{ url_for('static', filename='auth.js') }}"></script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>

@@ -11,6 +11,8 @@ import io
 import uuid
 from html import escape
 from datetime import datetime
+from contextlib import closing
+from pathlib import Path
 
 from flask import Flask, request, jsonify, render_template, g, has_request_context
 from auth import register_auth, initialize_auth, has_permission, PERM_VIEW_CONFIDENTIAL, PERM_DANGEROUS_SQL
@@ -19,6 +21,7 @@ import requests
 from sql_security import inspect_sql, run_statement
 from security_audit import register_security, issue_preview, consume_preview
 from database import CATALOG
+from schema_cache import SchemaCache
 from external_connections import (register_connections, active_connection, connection_key,
                                   external_schema, run_external, safe_connection, ConnectionUnavailable)
 
@@ -38,6 +41,7 @@ app = Flask(__name__,
             static_folder='static')
 register_auth(app)
 register_security(app)
+schema_cache = app.extensions['schema_cache'] = SchemaCache()
 register_connections(app)
 data_lock = threading.RLock()
 
@@ -106,67 +110,80 @@ def get_model():
         return "tinyllama"
 
 # ── Схема БД ────────────────────────────────────────────────────────────────
+REFERENCE_COLUMNS = {
+    "faculties": "id, name, short_name",
+    "departments": "id, faculty_id, name",
+    "specializations": "id, faculty_id, department_id, name, code",
+    "courses": "id, department_id, name",
+}
+
+
+def read_local_schema(path, confidential):
+    tables, references = {}, {}
+    with closing(sqlite3.connect(path.as_uri() + '?mode=ro', uri=True)) as conn:
+        conn.execute('BEGIN')
+        names = [name for (name,) in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        ) if not name.casefold().startswith('sqlite_')
+            and (confidential or not name.casefold().startswith('conf_'))]
+        visible_names = {name.casefold(): name for name in names}
+        primary_keys = {}
+        for table in names:
+            quoted = '"' + table.replace('"', '""') + '"'
+            columns = conn.execute(f"PRAGMA table_info({quoted})").fetchall()
+            primary_keys[table] = [col[1] for col in sorted(columns, key=lambda col: col[5]) if col[5]]
+            foreign_keys = {}
+            for fk in conn.execute(f"PRAGMA foreign_key_list({quoted})"):
+                target = visible_names.get(fk[2].casefold())
+                if target is None:
+                    continue
+                relation = foreign_keys.setdefault(fk[0], {
+                    'table': target, 'columns': [], 'referred_columns': [],
+                })
+                relation['columns'].append(fk[3])
+                relation['referred_columns'].append(fk[4])
+            tables[table] = {
+                'columns': [{'name': col[1], 'type': col[2], 'pk': bool(col[5])} for col in columns],
+                'row_count': conn.execute(f"SELECT COUNT(*) FROM {quoted}").fetchone()[0],
+                'foreign_keys': list(foreign_keys.values()),
+            }
+            fields = REFERENCE_COLUMNS.get(table)
+            if fields and set(fields.split(', ')) <= {col[1] for col in columns}:
+                references[table] = conn.execute(f"SELECT {fields} FROM {quoted} ORDER BY id").fetchall()
+    for info in tables.values():
+        for fk in info['foreign_keys']:
+            if all(column is None for column in fk['referred_columns']):
+                fk['referred_columns'] = primary_keys[fk['table']]
+    return tables, references
+
+
 def get_schema(question=''):
     external = active_connection()
     if external:
         try:
-            return external_schema(external)
+            return schema_cache.get((external['id'], external['user_id']), lambda: external_schema(external))
         except Exception:
             raise ConnectionUnavailable('Не удалось прочитать схему внешней базы. Проверьте подключение и ключ шифрования.') from None
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name != 'sqlite_sequence' ORDER BY name;"
-    )
-    tables = [r[0] for r in cursor.fetchall()]
-
-    schema_text = ""
-    schema_dict = {}
-
-    for table in tables:
-        if table.casefold().startswith('conf_') and not can_view_confidential():
-            continue
-        quoted_table = '"' + table.replace('"', '""') + '"'
-        cursor.execute(f"PRAGMA table_info({quoted_table});")
-        columns = cursor.fetchall()
-        cursor.execute(f"SELECT COUNT(*) FROM {quoted_table};")
-        row_count = cursor.fetchone()[0]
-
-        schema_text += f"Table: {table}\nColumns:\n"
-        for col in columns:
-            schema_text += f"  {col[1]} {col[2]}"
-            if col[5]:
-                schema_text += " PRIMARY KEY"
-            schema_text += "\n"
-        cursor.execute(f"PRAGMA foreign_key_list({quoted_table});")
-        for fk in cursor.fetchall():
-            schema_text += f"  FOREIGN KEY ({fk[3]}) REFERENCES {fk[2]}({fk[4]})\n"
-        # Только небольшие публичные справочники, без персональных данных.
-        reference_columns = {
-            "faculties": "id, name, short_name",
-            "departments": "id, faculty_id, name",
-            "specializations": "id, faculty_id, department_id, name, code",
-            "courses": "id, department_id, name",
-        }
-        if table in reference_columns and set(reference_columns[table].split(', ')) <= {col[1] for col in columns}:
-            values = cursor.execute(
-                f"SELECT {reference_columns[table]} FROM {table} ORDER BY id"
-            ).fetchall()
-            terms = {word[:5] for word in re.findall(r'\w+', question.casefold()) if len(word) >= 4}
+    path = Path(DB_PATH).resolve()
+    confidential = can_view_confidential()
+    tables, references = schema_cache.get((None, path, confidential), lambda: read_local_schema(path, confidential))
+    terms = {word[:5] for word in re.findall(r'\w+', question.casefold()) if len(word) >= 4}
+    lines = []
+    for table, info in tables.items():
+        lines.extend((f"Table: {table}", "Columns:"))
+        for col in info['columns']:
+            lines.append(f"  {col['name']} {col['type']}" + (' PRIMARY KEY' if col['pk'] else ''))
+        for fk in info['foreign_keys']:
+            target = ', '.join(column or 'PRIMARY KEY' for column in fk['referred_columns'])
+            lines.append(f"  FOREIGN KEY ({', '.join(fk['columns'])}) REFERENCES {fk['table']}({target})")
+        if table in references:
+            values = references[table]
             if terms:
-                values.sort(key=lambda row: -sum(term in str(row).casefold() for term in terms))
+                values = sorted(values, key=lambda row: -sum(term in str(row).casefold() for term in terms))
             values = values[:20 if table == 'faculties' else 10]
-            schema_text += f"Reference values ({reference_columns[table]}): "
-            schema_text += json.dumps(values, ensure_ascii=False) + "\n"
-        schema_text += "\n"
-
-        schema_dict[table] = {
-            "columns": [{"name": col[1], "type": col[2], "pk": bool(col[5])} for col in columns],
-            "row_count": row_count,
-        }
-
-    conn.close()
-    return schema_text, schema_dict
+            lines.append(f"Reference values ({REFERENCE_COLUMNS[table]}): " + json.dumps(values, ensure_ascii=False))
+        lines.append("")
+    return '\n'.join(lines), tables
 
 # ── Генерация SQL ────────────────────────────────────────────────────────────
 def normalize_question(question):
@@ -299,6 +316,8 @@ def execute_sql(sql, confirmation_token=None):
                            confidential=can_view_confidential(),
                            timeout=app.config['SQL_TIMEOUT_SECONDS'],
                            preview=confirmation_token is None, expected_fingerprint=expected)
+    if result.get('committed'):
+        schema_cache.invalidate(None)
     fingerprint = result.pop('fingerprint', None)
     if fingerprint and has_request_context():
         result['confirmation_token'] = issue_preview(sql, fingerprint)
@@ -344,13 +363,15 @@ def add_to_history(question, sql, count, success, blocked=False):
 def index():
     return render_template("index.html", university=CATALOG['short_name'])
 
-@app.route("/api/schema")
+@app.route("/api/schema", methods=['GET', 'POST'])
 def schema():
     try:
-        if not active_connection() and not os.path.exists(DB_PATH):
-            return jsonify({"error": "База данных не найдена. Запусти: python database.py"}), 500
-        _, d = get_schema()
         external = active_connection()
+        if not external and not os.path.exists(DB_PATH):
+            return jsonify({"error": "База данных не найдена. Запусти: python database.py"}), 500
+        if request.method == 'POST':
+            schema_cache.invalidate(external['id'] if external else None)
+        _, d = get_schema()
         return jsonify({"schema": d, 'connection': safe_connection(external) if external else None})
     except ConnectionUnavailable:
         raise

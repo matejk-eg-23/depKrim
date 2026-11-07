@@ -1,14 +1,21 @@
 // ─── Схема БД ─────────────────────────────────────────
-async function loadSchema() {
+let schemaRequest = 0;
+
+async function loadSchema(refresh = false) {
+    const requestId = ++schemaRequest;
+    const user = currentUser;
     try {
-        const res = await apiFetch("/api/schema");
+        const res = await apiFetch("/api/schema", {method: refresh ? 'POST' : 'GET'});
         const data = await res.json();
+        if (requestId !== schemaRequest || user !== currentUser) return;
         if (data.error) {
+            updateSchemaDiagram(null, '', data.error);
             document.getElementById("schemaTree").innerHTML =
                 `<div class="schema-error">${escapeHtml(data.error)}</div>`;
             return;
         }
         renderSchema(data.schema);
+        updateSchemaDiagram(data.schema, data.connection?.name ?? 'ГрГУ имени Янки Купалы');
         document.getElementById('schemaLabel').textContent = data.connection ? `${data.connection.name} · таблицы` : 'ГрГУ · таблицы';
         document.getElementById('databaseName').textContent = data.connection ? data.connection.name : 'ГрГУ имени Янки Купалы';
         document.getElementById('databaseNote').textContent = data.connection ? `${data.connection.kind} · Только чтение` : 'Учебная база · Студенты, преподаватели и оценки вымышлены';
@@ -16,6 +23,8 @@ async function loadSchema() {
         const emptyText = document.querySelector('#emptyState p');
         if (emptyText) emptyText.textContent = data.connection ? `Задайте вопрос к базе «${data.connection.name}»` : 'Задайте вопрос к учебной базе ГрГУ имени Янки Купалы';
     } catch {
+        if (requestId !== schemaRequest || user !== currentUser) return;
+        updateSchemaDiagram(null, '', 'Сервер недоступен');
         document.getElementById("schemaTree").innerHTML =
             '<div class="schema-error">Сервер недоступен</div>';
     }

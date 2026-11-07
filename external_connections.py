@@ -197,6 +197,7 @@ def external_schema(row):
     config = decrypt_config(row)
     with readonly_connection(config) as conn:
         inspector = inspect(conn)
+        default_schema = inspector.default_schema_name
         result, text = {}, ''
         tables = inspector.get_table_names()
         if len(tables) > 100:
@@ -208,13 +209,23 @@ def external_schema(row):
             pk = inspector.get_pk_constraint(table).get('constrained_columns') or []
             fks = inspector.get_foreign_keys(table)
             result[table] = {'columns': [{'name': c['name'], 'type': str(c['type']), 'pk': c['name'] in pk} for c in columns],
-                             'row_count': '—'}
+                             'row_count': '—', 'foreign_keys': []}
             # Не сканируем внешние таблицы ради счётчика и не отправляем их содержимое в LLM.
             text += f'Table: {table}\nColumns:\n'
             for c in result[table]['columns']:
                 text += f"  {c['name']} {c['type']}" + (' PRIMARY KEY' if c['pk'] else '') + '\n'
             for fk in fks:
-                text += f"  FOREIGN KEY ({', '.join(fk['constrained_columns'])}) REFERENCES {fk['referred_table']}({', '.join(fk['referred_columns'])})\n"
+                target = fk['referred_table']
+                namespace = fk.get('referred_schema')
+                columns = fk['constrained_columns']
+                referred = [column or 'PRIMARY KEY' for column in fk['referred_columns']]
+                if namespace and namespace != default_schema:
+                    target = f'{namespace}.{target}'
+                elif target in tables and not target.startswith('sqlite_'):
+                    result[table]['foreign_keys'].append({
+                        'table': target, 'columns': columns, 'referred_columns': referred,
+                    })
+                text += f"  FOREIGN KEY ({', '.join(columns)}) REFERENCES {target}({', '.join(referred)})\n"
             text += '\n'
             if len(text) > 20000:
                 raise ValueError('Схема слишком велика для контекста модели. Используйте базу с меньшей схемой.')
@@ -314,6 +325,7 @@ def register_connections(app):
         identifier = data.get('id')
         if identifier is None:
             session.pop('connection_id', None)
+            app.extensions['schema_cache'].invalidate(None)
             return jsonify(ok=True)
         if not isinstance(identifier, int) or isinstance(identifier, bool):
             return jsonify(error='Некорректный идентификатор подключения'), 400
@@ -325,6 +337,7 @@ def register_connections(app):
         except Exception:
             return jsonify(error=CONNECTION_ERROR), 400
         session['connection_id'] = identifier
+        app.extensions['schema_cache'].invalidate(identifier)
         return jsonify(ok=True)
 
     @app.delete('/api/connections/<int:identifier>')
@@ -333,6 +346,7 @@ def register_connections(app):
             deleted = conn.execute('DELETE FROM external_connections WHERE id=? AND user_id=?', (identifier, g.current_user['id'])).rowcount
         if not deleted:
             return jsonify(error='Подключение не найдено'), 404
+        app.extensions['schema_cache'].invalidate(identifier)
         if session.get('connection_id') == identifier:
             session.pop('connection_id', None)
         return jsonify(ok=True)

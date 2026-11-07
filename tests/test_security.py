@@ -52,6 +52,29 @@ class SQLSecurityTests(unittest.TestCase):
         self.assertTrue(result['sandbox'])
         return result['confirmation_token']
 
+    def test_schema_cache_expiry_manual_refresh_and_confirmed_ddl(self):
+        with patch('schema_cache.monotonic', return_value=1000) as clock:
+            self.assertNotIn('schema_probe', self.admin.get('/api/schema').get_json()['schema'])
+            with self.database() as conn, conn:
+                conn.execute('CREATE TABLE schema_probe (id INTEGER)')
+            clock.return_value = 1299
+            self.assertNotIn('schema_probe', self.admin.get('/api/schema').get_json()['schema'])
+            clock.return_value = 1300
+            self.assertIn('schema_probe', self.admin.get('/api/schema').get_json()['schema'])
+
+            with self.database() as conn, conn:
+                conn.execute('ALTER TABLE schema_probe ADD COLUMN label TEXT')
+            self.assertEqual(self.admin.post('/api/schema', json={}, use_csrf=False).status_code, 403)
+            refreshed = self.admin.post('/api/schema', json={}).get_json()['schema']
+            self.assertEqual([c['name'] for c in refreshed['schema_probe']['columns']], ['id', 'label'])
+
+            sql = 'DROP TABLE schema_probe'
+            token = self.preview(self.admin, sql)
+            self.assertIn('schema_probe', self.admin.get('/api/schema').get_json()['schema'])
+            result = self.admin.post('/api/execute', json={'sql': sql, 'confirmation_token': token}).get_json()
+            self.assertTrue(result['committed'])
+            self.assertNotIn('schema_probe', self.admin.get('/api/schema').get_json()['schema'])
+
     def test_write_requires_rollback_preview_then_explicit_one_time_confirmation(self):
         operator = self.user('writer', 'operator')
         sql = "UPDATE students SET first_name='Исправлено' WHERE id=1"

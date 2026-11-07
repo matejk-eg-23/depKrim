@@ -183,23 +183,21 @@
         </div>
         <div class="schema-diagram-details" id="schemaDiagramDetails" aria-live="polite"></div>
     </dialog>
+    <dialog id="sqlModal" class="admin-dialog saved-sql-dialog" aria-labelledby="savedSqlTitle">
+        <div class="admin-heading">
+            <h2 id="savedSqlTitle">Сохранённый SQL</h2>
+            <form method="dialog"><button class="btn-sm">Закрыть</button></form>
+        </div>
+        <p id="modalSqlQuestion" class="saved-sql-question"></p>
+        <textarea id="modalSqlCode" class="sql-textarea" aria-label="Сохранённый SQL" spellcheck="false" readonly></textarea>
+        <div class="sql-actions">
+            <button class="btn-sm" type="button" onclick="copySQL('modalSqlCode', this)">Копировать</button>
+            <button class="btn-sm primary" type="button" onclick="openSavedSQL()">Открыть в редакторе SQL</button>
+        </div>
+    </dialog>
     <script src="{{ url_for('static', filename='schema_diagram.js') }}"></script>
     <script src="{{ url_for('static', filename='connections.js') }}"></script>
     <script src="{{ url_for('static', filename='auth.js') }}"></script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
-<!-- Modal для просмотра SQL -->
-<div id="sqlModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>SQL запрос</h3>
-            <button class="modal-close" onclick="closeModal()">×</button>
-        </div>
-        <textarea id="modalSqlCode" class="modal-sql" readonly></textarea>
-        <div class="modal-actions">
-            <button class="btn-sm" onclick="copyModalSQL()">Копировать</button>
-            <button class="btn-sm primary" onclick="useThisSQL()">Использовать этот запрос</button>
-        </div>
-    </div>
-</div>
   </body>
 </html>

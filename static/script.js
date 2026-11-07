@@ -88,23 +88,7 @@ async function loadHistory() {
             return;
         }
 
-        container.innerHTML = data.history.map(item => `
-            <div class="side-item">
-                <div class="side-item-q">${escapeHtml(item.question)}</div>
-                <div class="side-item-meta">
-                    <span class="status-dot ${item.blocked ? 'dot-warn' : item.success ? 'dot-ok' : 'dot-err'}"></span>
-                    <span>${item.time}</span>
-                    <span>•</span>
-                    <span>${item.count || 0} строк</span>
-                    ${item.blocked ? '<span title="Заблокирован защитой"></span>' : ''}
-                </div>
-                <div class="side-item-actions">
-                    <button class="side-btn" onclick="reuseSQL(${JSON.stringify(item.sql).replace(/"/g, '&quot;')})" title="Использовать SQL">SQL</button>
-                    <button class="side-btn" onclick="addToFavoritesFromHistory('${item.id}')" title="В избранное">★</button>
-                    <button class="side-btn del" onclick="deleteHistoryItem('${item.id}')" title="Удалить">×</button>
-                </div>
-            </div>
-        `).join("");
+        renderSavedQueries(container, data.history, true);
     } catch (e) {
         console.error("Error loading history:", e);
     }
@@ -151,21 +135,48 @@ async function loadFavorites() {
             return;
         }
 
-        container.innerHTML = data.favorites.map(item => `
-            <div class="side-item">
-                <div class="side-item-q">${escapeHtml(item.question)}</div>
-                <div class="side-item-meta">
-                    <span>${item.time}</span>
-                </div>
-                <div class="side-item-actions">
-                    <button class="side-btn" onclick="reuseSQL(${JSON.stringify(item.sql).replace(/"/g, '&quot;')})" title="Использовать SQL">SQL</button>
-                    <button class="side-btn del" onclick="removeFavorite('${item.id}')" title="Удалить">×</button>
-                </div>
-            </div>
-        `).join("");
+        renderSavedQueries(container, data.favorites, false);
     } catch (e) {
         console.error("Error loading favorites:", e);
     }
+}
+
+function renderSavedQueries(container, items, fromHistory) {
+    container.replaceChildren(...items.map(item => {
+        const question = item.question || '';
+        const sql = item.sql || '';
+        const count = Number(item.count) || 0;
+        const row = document.createElement('div');
+        row.className = 'side-item';
+        row.innerHTML = `
+            <button class="side-item-q" type="button"></button>
+            <div class="side-item-meta">
+                ${fromHistory ? `<span class="status-dot ${item.blocked ? 'dot-warn' : item.success ? 'dot-ok' : 'dot-err'}"
+                    ${item.blocked ? 'title="Заблокирован защитой"' : ''}></span>` : ''}
+                <span>${escapeHtml(item.time)}</span>
+                ${fromHistory ? `<span>•</span><span>${count} ${declension(count)}</span>` : ''}
+            </div>
+            <div class="side-item-actions">
+                <button class="side-btn" type="button" data-saved-sql title="Открыть сохранённый SQL" aria-label="Открыть сохранённый SQL">SQL</button>
+                ${fromHistory ? '<button class="side-btn" type="button" data-save title="В избранное" aria-label="В избранное">★</button>' : ''}
+                <button class="side-btn del" type="button" data-remove title="Удалить" aria-label="Удалить">×</button>
+            </div>`;
+        const questionButton = row.querySelector('.side-item-q');
+        questionButton.textContent = question.trim() ? question : 'Без исходного вопроса';
+        questionButton.disabled = !question.trim();
+        questionButton.title = question.trim() ? `Повторить вопрос: ${question}` : '';
+        questionButton.addEventListener('click', () => fillQuestion(question));
+
+        const sqlButton = row.querySelector('[data-saved-sql]');
+        sqlButton.hidden = !sql.trim();
+        sqlButton.addEventListener('click', () => showSQLModal(question, sql));
+        row.querySelector('[data-save]')?.addEventListener('click', () => addToFavorites(question, sql));
+        row.querySelector('[data-remove]').addEventListener('click', () => {
+            if (fromHistory) deleteHistoryItem(item.id);
+            else removeFavorite(item.id);
+        });
+        return row;
+    }));
 }
 
 async function addToFavorites(question, sql) {
@@ -178,19 +189,6 @@ async function addToFavorites(question, sql) {
         alert("✅ Добавлено в избранное");
     } catch (e) {
         alert("Ошибка при добавлении в избранное");
-    }
-}
-
-async function addToFavoritesFromHistory(id) {
-    try {
-        const res = await apiFetch("/api/history");
-        const data = await res.json();
-        const item = data.history.find(h => h.id === id);
-        if (item) {
-            addToFavorites(item.question, item.sql);
-        }
-    } catch (e) {
-        console.error(e);
     }
 }
 
@@ -207,51 +205,26 @@ async function removeFavorite(id) {
     }
 }
 
-let currentSQL = "";
+const savedSqlDialog = document.getElementById('sqlModal');
 
-function showSQLModal(sql) {
-    currentSQL = sql;
-    document.getElementById("modalSqlCode").value = sql;
-    document.getElementById("sqlModal").style.display = "flex";
+function showSQLModal(question, sql) {
+    document.getElementById('modalSqlQuestion').textContent = question;
+    document.getElementById('modalSqlCode').value = sql;
+    savedSqlDialog.showModal();
 }
 
-function closeModal() {
-    document.getElementById("sqlModal").style.display = "none";
+function openSavedSQL() {
+    const question = document.getElementById('modalSqlQuestion').textContent;
+    const sql = document.getElementById('modalSqlCode').value;
+    savedSqlDialog.close();
+    renderResult({question, sql}, {saved: true});
 }
 
-function copyModalSQL() {
-    if (!currentSQL) return;
-    navigator.clipboard.writeText(currentSQL).then(() => {
-        const btn = document.querySelector('.modal-actions button:first-child');
-        if (btn) {
-            const originalText = btn.textContent;
-            btn.textContent = "✅ Скопировано!";
-            btn.style.background = "#1a6b3c";
-            btn.style.color = "white";
-            setTimeout(() => {
-                btn.textContent = originalText;
-                btn.style.background = "";
-                btn.style.color = "";
-            }, 2000);
-        }
-    }).catch(err => {
-        console.error("Ошибка копирования:", err);
-        alert("Не удалось скопировать");
-    });
-}
-
-function useThisSQL() {
-    document.getElementById("questionInput").value = currentSQL;
-    closeModal();
-    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-    document.querySelector('.tab[onclick*="structure"]').classList.add("active");
-    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
-    document.getElementById("structurePanel").classList.add("active");
-}
-
-function reuseSQL(sql) {
-    showSQLModal(sql);
-}
+savedSqlDialog.addEventListener('close', () => {
+    if (savedSqlDialog.open) return;
+    document.getElementById('modalSqlQuestion').textContent = '';
+    document.getElementById('modalSqlCode').value = '';
+});
 
 // ─── Примеры ──────────────────────────────────────────
 async function loadExamples() {
@@ -261,7 +234,7 @@ async function loadExamples() {
         const dropdown = document.getElementById("examplesDropdown");
         document.getElementById('examplesBtn').classList.toggle('hidden', !data.examples?.length);
         dropdown.innerHTML = data.examples.map(ex =>
-            `<button class="example-btn" onclick="useExample('${ex.replace(/'/g, "\\'")}')">${ex}</button>`
+            `<button class="example-btn" onclick="fillQuestion('${ex.replace(/'/g, "\\'")}')">${ex}</button>`
         ).join("");
     } catch {}
 }
@@ -275,7 +248,7 @@ document.addEventListener("click", function () {
     document.getElementById("examplesDropdown").classList.remove("visible");
 });
 
-function useExample(text) {
+function fillQuestion(text) {
     document.getElementById("questionInput").value = text;
     document.getElementById("examplesDropdown").classList.remove("visible");
     document.getElementById("questionInput").focus();
@@ -346,22 +319,28 @@ function renderExecution(result, sqlId, tblId, executedSQL) {
     }
 }
 
-function renderResult(data) {
+function renderResult(data, {saved = false} = {}) {
     const zone = document.getElementById('resultsZone');
     const card = document.createElement('div');
     card.className = 'result-card';
     const suffix = crypto.randomUUID();
     const sqlId = 'sql_' + suffix;
     const tblId = 'tbl_' + suffix;
-    let html = `<div class="card-question"><span class="q-dot"></span><span>${escapeHtml(data.question || 'Результат запроса')}</span></div>`;
+    const title = data.question || (saved ? 'Запрос без исходного вопроса' : 'Результат запроса');
+    let html = `<div class="card-question"><span class="q-dot"></span><span>${escapeHtml(title)}</span></div>`;
     if (data.sql) {
-        html += `<div class="sql-block"><div class="block-label">Сгенерированный SQL</div><textarea class="sql-textarea" id="${sqlId}" spellcheck="false">${escapeHtml(data.sql)}</textarea><div class="sql-actions"><button class="btn-sm primary" onclick="runSQL('${sqlId}', '${tblId}')">Проверить / выполнить</button><button class="btn-sm" onclick="copySQL('${sqlId}', this)">Копировать</button><button class="btn-sm star" data-favorite>★ В избранное</button></div></div>`;
+        html += `<div class="sql-block"><div class="block-label" id="label_${sqlId}">${saved ? 'Сохранённый SQL' : 'Сгенерированный SQL'}</div><textarea class="sql-textarea" id="${sqlId}" aria-labelledby="label_${sqlId}" spellcheck="false">${escapeHtml(data.sql)}</textarea><div class="sql-actions"><button class="btn-sm primary" onclick="runSQL('${sqlId}', '${tblId}')">Проверить / выполнить</button><button class="btn-sm" onclick="copySQL('${sqlId}', this)">Копировать</button><button class="btn-sm star" data-favorite>★ В избранное</button></div></div>`;
     }
     html += `<div class="table-block" id="${tblId}"></div>`;
     card.innerHTML = html;
     zone.insertBefore(card, zone.firstChild);
     card.querySelector('[data-favorite]')?.addEventListener('click', () => addToFavorites(data.question, document.getElementById(sqlId).value));
-    renderExecution(data.error ? {error: data.error} : data.result || {}, sqlId, tblId, data.sql);
+    if (saved) {
+        document.getElementById('emptyState')?.remove();
+        document.getElementById(sqlId).focus();
+    } else {
+        renderExecution(data.error ? {error: data.error} : data.result || {}, sqlId, tblId, data.sql);
+    }
 }
 
 async function runSQL(sqlId, tblId) {

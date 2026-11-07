@@ -137,24 +137,33 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
 
 /* ─── History & Favorites items ─── */
 .side-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3px 6px;
   padding: 8px 9px;
   border-radius: 7px;
-  cursor: pointer;
   margin-bottom: 3px;
   border: 1px solid transparent;
   transition: background 0.1s, border-color 0.1s;
-  position: relative;
 }
-.side-item:hover { background: var(--bg); border-color: var(--border); }
+.side-item:hover, .side-item:focus-within { background: var(--bg); border-color: var(--border); }
 
 .side-item-q {
+  grid-column: 1 / -1;
+  font: inherit;
   font-size: 12px;
   color: var(--text);
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-right: 22px;
 }
+.side-item-q:not(:disabled):hover { color: var(--accent); text-decoration: underline; }
+.side-item-q:disabled { color: var(--text-dim); cursor: default; }
 
 .side-item-meta { font-size: 10px; color: var(--text-hint); margin-top: 3px; display: flex; align-items: center; gap: 5px; }
 
@@ -164,17 +173,12 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
 .dot-warn { background: #e09000; }
 
 .side-item-actions {
-  position: absolute;
-  top: 7px; right: 7px;
   display: flex;
   gap: 3px;
-  opacity: 0;
-  transition: opacity 0.15s;
 }
-.side-item:hover .side-item-actions { opacity: 1; }
 
 .side-btn {
-  width: 20px; height: 20px;
+  min-width: 24px; height: 22px; padding: 0 3px;
   display: flex; align-items: center; justify-content: center;
   background: var(--surface);
   border: 1px solid var(--border-mid);
@@ -282,68 +286,12 @@ tr:hover td { background: var(--bg); }
 .error-block { margin: 12px 16px; padding: 10px 13px; background: var(--error-bg); border: 1px solid rgba(184,50,50,.18); border-radius: 7px; font-size: 12.5px; color: var(--error); line-height: 1.5; }
 
 /* Modal */
-.modal {
-    display: none;
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(0,0,0,0.6);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-}
-
-.modal-content {
-    background: var(--surface);
-    border-radius: 10px;
-    width: 90%;
-    max-width: 720px;
-    max-height: 85vh;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-}
-
-.modal-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.modal-header h3 {
-    margin: 0;
-    font-size: 16px;
-}
-
-.modal-close {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    color: var(--text-hint);
-}
-
-.modal-sql {
-    flex: 1;
-    padding: 16px;
-    font-family: var(--mono);
-    font-size: 13px;
-    background: #f8f7f2;
-    border: none;
-    resize: none;
-    outline: none;
-    line-height: 1.5;
-}
-
-.modal-actions {
-    padding: 12px 20px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-}
+.saved-sql-dialog { width: min(720px, calc(100% - 32px)); }
+.saved-sql-question { margin: 12px 0; color: var(--text-dim); overflow-wrap: anywhere; }
+.saved-sql-question:empty { display: none; }
+.saved-sql-dialog .sql-textarea { min-height: 120px; }
+.saved-sql-dialog .sql-actions { flex-wrap: wrap; justify-content: flex-end; }
+.table-block:empty { display: none; }
 
 /* ── Security block (добавить в конец style.css) ── */
 .security-block {

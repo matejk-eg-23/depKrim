@@ -16,9 +16,7 @@ function showAuthScreen(id) {
         empty.textContent = 'Задайте вопрос к учебной базе ГрГУ имени Янки Купалы';
         document.getElementById('resultsZone').append(empty);
         for (const key of Object.keys(window)) if (key.startsWith('tdexp_')) delete window[key];
-        if (typeof currentSQL !== 'undefined') currentSQL = '';
         if (typeof pendingConfirmations !== 'undefined') pendingConfirmations.clear();
-        if (typeof closeModal === 'function') closeModal();
     }
     for (const screen of ['loginScreen', 'passwordScreen', 'mainApp']) {
         document.getElementById(screen).classList.toggle('hidden', screen !== id);
@@ -26,6 +24,7 @@ function showAuthScreen(id) {
     document.getElementById('adminDialog').close();
     document.getElementById('auditDialog').close();
     document.getElementById('connectionsDialog').close();
+    document.getElementById('sqlModal').close();
     document.getElementById('connectionForm').reset();
     document.getElementById('connectionsList').replaceChildren();
 }

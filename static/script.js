@@ -1,3 +1,53 @@
+// ─── Доступность Ollama ─────────────────────────────────
+let ollamaMonitor = null;
+
+function stopOllamaMonitor() {
+    if (!ollamaMonitor) return;
+    ollamaMonitor.controller.abort();
+    clearTimeout(ollamaMonitor.timer);
+    ollamaMonitor = null;
+}
+
+function startOllamaMonitor() {
+    const monitor = {controller: new AbortController(), timer: null};
+    ollamaMonitor = monitor;
+    const indicator = document.getElementById('ollamaStatus');
+    indicator.dataset.state = 'checking';
+    indicator.textContent = 'Проверяем Ollama…';
+
+    async function poll() {
+        let state = 'unknown';
+        let message = 'Не удалось проверить статус Ollama';
+        try {
+            const signal = AbortSignal.any([monitor.controller.signal, AbortSignal.timeout(5000)]);
+            const response = await apiFetch('/api/model', {signal});
+            if (response.ok) {
+                const status = await response.json();
+                if (status.status === 'ready' && status.model) {
+                    state = 'ready';
+                    message = `Ollama доступна · ${status.model}`;
+                } else if (status.status === 'no_models') {
+                    state = 'no_models';
+                    message = 'Ollama запущена. Установите модель для генерации SQL.';
+                } else if (status.status === 'unavailable') {
+                    state = 'unavailable';
+                    message = 'Ollama недоступна. Проверьте, запущена ли она.';
+                }
+            }
+        } catch {
+            // При недоступности Flask состояние самой Ollama неизвестно.
+        }
+        if (ollamaMonitor !== monitor) return;
+        if (indicator.dataset.state !== state || indicator.textContent !== message) {
+            indicator.dataset.state = state;
+            indicator.textContent = message;
+        }
+        monitor.timer = setTimeout(poll, 15000);
+    }
+
+    poll();
+}
+
 // ─── Схема БД ─────────────────────────────────────────
 let schemaRequest = 0;
 

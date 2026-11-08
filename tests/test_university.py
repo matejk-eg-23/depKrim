@@ -126,6 +126,24 @@ class UniversityDatabaseTests(unittest.TestCase):
         configure_test_auth(state['app'], self.path.parent)
         return state
 
+    def test_ollama_status_and_generation_without_a_model(self):
+        state = self.generation_state()
+        client = authenticated_client(state['app'])
+        with patch('requests.get') as tags, patch('requests.post') as generate:
+            tags.return_value.json.return_value = {'models': [{'name': 'gemma:latest'}, {'name': 'llama3:8b'}]}
+            self.assertEqual(client.get('/api/model').get_json(), {'status': 'ready', 'model': 'llama3:8b'})
+
+            tags.return_value.json.return_value = {'models': []}
+            self.assertEqual(client.get('/api/model').get_json(), {'status': 'no_models', 'model': None})
+            result = client.post('/api/generate', json={'question': 'Нестандартный вопрос для модели'})
+            self.assertIn('Модель Ollama недоступна', result.get_json()['error'])
+
+            tags.side_effect = state['requests'].Timeout()
+            self.assertEqual(client.get('/api/model').get_json(), {'status': 'unavailable', 'model': None})
+            result = client.post('/api/generate', json={'question': 'Покажи все факультеты ГрГУ имени Янки Купалы'})
+            self.assertEqual(result.get_json()['result']['count'], 13)
+            generate.assert_not_called()
+
     def test_all_suggested_questions_use_valid_templates(self):
         state = self.generation_state()
         client = authenticated_client(state['app'])

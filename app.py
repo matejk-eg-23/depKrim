@@ -26,9 +26,12 @@ from schema_cache import SchemaCache
 from external_connections import (register_connections, active_connection, connection_key,
                                   external_schema, run_external, safe_connection, ConnectionUnavailable)
 
+OLLAMA_BASE_URL = "http://localhost:11434"
+
+
 def start_ollama():
     try:
-        requests.get("http://localhost:11434", timeout=2)
+        requests.get(OLLAMA_BASE_URL, timeout=2)
         print("Ollama уже запущена")
     except:
         print("Запускаю Ollama...")
@@ -52,7 +55,7 @@ HIST_PATH  = os.path.join(BASE_DIR, "history.json")
 FAV_PATH   = os.path.join(BASE_DIR, "favorites.json")
 PROMPTS_PATH = os.path.join(BASE_DIR, "prompts.json")
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_URL = f"{OLLAMA_BASE_URL}/api/generate"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # МОДУЛЬ БЕЗОПАСНОСТИ
@@ -98,17 +101,32 @@ def validate_sql(sql):
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Автоопределение модели ───────────────────────────────────────────────────
-def get_model():
+def get_ollama_status():
     try:
-        r = requests.get("http://localhost:11434/api/tags", timeout=5)
-        models = [m["name"] for m in r.json().get("models", [])]
-        for prefer in ["llama3", "mistral", "phi3", "gemma", "tinyllama"]:
-            for m in models:
-                if prefer in m.lower():
-                    return m
-        return models[0] if models else "tinyllama"
-    except:
-        return "tinyllama"
+        response = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=2)
+        response.raise_for_status()
+        data = response.json()
+    except (requests.RequestException, ValueError):
+        return {"status": "unavailable", "model": None}
+
+    entries = data.get("models") if isinstance(data, dict) else None
+    if not isinstance(entries, list):
+        return {"status": "unavailable", "model": None}
+    if not entries:
+        return {"status": "no_models", "model": None}
+    models = [entry.get("name") for entry in entries if isinstance(entry, dict)]
+    models = [name for name in models if isinstance(name, str) and name.strip()]
+    if not models:
+        return {"status": "unavailable", "model": None}
+    for prefer in ("llama3", "mistral", "phi3", "gemma", "tinyllama"):
+        for model in models:
+            if prefer in model.lower():
+                return {"status": "ready", "model": model}
+    return {"status": "ready", "model": models[0]}
+
+
+def get_model():
+    return get_ollama_status()["model"]
 
 # ── Схема БД ────────────────────────────────────────────────────────────────
 REFERENCE_COLUMNS = {
@@ -223,6 +241,8 @@ def generate_sql(question):
     relevant = [ex for ex in ranked if words & set(normalize_question(ex["question"]).split())][:3]
     examples_text = "\n\n".join(f"Вопрос: {ex['question']}\nSQL: {ex['sql']}" for ex in relevant)
     model = get_model()
+    if model is None:
+        return {"sql": "", "error": "Модель Ollama недоступна. Проверьте, запущена ли Ollama и установлена ли модель.", "model": None}
     command_rule = ('Разрешены SELECT и команды INSERT/UPDATE/DELETE/CREATE TABLE/CREATE INDEX/ALTER TABLE/DROP TABLE/DROP INDEX. Изменения сначала проходят пробный запуск.' if can_modify_sql() else 'Разрешено только чтение: SELECT или WITH ... SELECT.')
 
     prompt = f"""Ты эксперт SQLite. Напиши SQL-запрос по схеме базы и вопросу пользователя.
@@ -381,7 +401,7 @@ def schema():
 
 @app.route("/api/model")
 def model_info():
-    return jsonify({"model": get_model()})
+    return jsonify(get_ollama_status())
 
 @app.route("/api/generate", methods=["POST"])
 def generate():
@@ -552,7 +572,7 @@ if __name__ == "__main__":
     else:
         print(f"База данных: {DB_PATH}")
 
-    print(f"Модель Ollama: {get_model()}")
+    print(f"Модель Ollama: {get_model() or 'недоступна'}")
     print("Сервер: http://localhost:5000  |  Остановка: Ctrl+C")
 
     threading.Timer(1.2, lambda: webbrowser.open("http://localhost:5000")).start()

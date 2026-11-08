@@ -54,6 +54,11 @@
 .university-context { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-bottom: 12px; font-size: 12px; }
 .university-context strong { color: var(--accent); font-weight: 600; }
 .university-context span { color: var(--text-hint); font-size: 11px; }
+.ollama-status { display: flex; align-items: baseline; gap: 7px; margin: -4px 0 10px; color: var(--text-dim); font-size: 12px; overflow-wrap: anywhere; }
+.ollama-status::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+.ollama-status[data-state="ready"] { color: var(--accent); }
+.ollama-status[data-state="no_models"], .ollama-status[data-state="unknown"] { color: var(--warn); }
+.ollama-status[data-state="unavailable"] { color: var(--error); }
 .audit-filters { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 12px; align-items: end; }
 .audit-filters label { display: grid; gap: 6px; font-size: 12px; }
 .audit-filters input, .audit-filters select { padding: 10px; border: 1px solid var(--border-mid); border-radius: 6px; font: inherit; width: 100%; min-width: 0; background: var(--bg); }

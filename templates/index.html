@@ -84,6 +84,7 @@
         <main class="main">
             <div class="input-zone">
                 <div class="university-context"><strong id="databaseName">{{ university }}</strong><span id="databaseNote">Учебная база · Студенты, преподаватели и оценки вымышлены</span></div>
+                <p id="ollamaStatus" class="ollama-status" data-state="checking" role="status">Проверяем Ollama…</p>
                 <div class="input-row">
                     <textarea id="questionInput" placeholder="Например: покажи студентов специальности Кибербезопасность..."></textarea>
                     <button id="sendBtn" class="btn-send" onclick="handleSend()">Сгенерировать SQL</button>

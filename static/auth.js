@@ -5,6 +5,7 @@ const roleNames = {guest: 'Гость', analyst: 'Аналитик', operator: '
 
 function showAuthScreen(id) {
     resetSchemaDiagram();
+    stopOllamaMonitor();
     if (id === 'loginScreen') {
         currentUser = null;
         for (const element of ['historyList', 'favoritesList', 'schemaTree', 'examplesDropdown', 'resultsZone', 'usersBody', 'auditBody']) {
@@ -63,6 +64,7 @@ function showMainApp() {
     document.getElementById('connectionsButton').classList.toggle('hidden', !(currentUser.permissions & 16));
     loadSchema();
     loadExamples();
+    startOllamaMonitor();
 }
 
 function showPasswordScreen() {

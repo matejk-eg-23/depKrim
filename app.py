@@ -14,13 +14,14 @@ from datetime import datetime
 from contextlib import closing
 from pathlib import Path
 
-from flask import Flask, request, jsonify, render_template, g, has_request_context
+from flask import Flask, request, jsonify, render_template, send_file, g, has_request_context
 from auth import register_auth, initialize_auth, has_permission, PERM_VIEW_CONFIDENTIAL, PERM_DANGEROUS_SQL
 import sqlite3
 import requests
 from sql_security import inspect_sql, run_statement
 from security_audit import register_security, issue_preview, consume_preview
 from database import CATALOG
+from pdf_report import build_pdf_report
 from schema_cache import SchemaCache
 from external_connections import (register_connections, active_connection, connection_key,
                                   external_schema, run_external, safe_connection, ConnectionUnavailable)
@@ -508,6 +509,8 @@ def favorites_remove():
 @app.post('/api/export')
 def export_data():
     data = request.get_json() or {}
+    if not isinstance(data, dict):
+        return jsonify(error='Некорректная таблица экспорта'), 400
     columns, rows = data.get('columns'), data.get('rows')
     if not isinstance(columns, list) or not columns or len(columns) > 200 or not isinstance(rows, list) or len(rows) > 1000:
         return jsonify(error='Некорректная таблица экспорта'), 400
@@ -526,6 +529,17 @@ def export_data():
         content = '<?xml version="1.0" encoding="UTF-8"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Результат"><Table>'
         content += xml_row(columns) + ''.join(xml_row(row) for row in rows) + '</Table></Worksheet></Workbook>'
         return jsonify(data=content, filename='результат.xls', mime='application/vnd.ms-excel;charset=utf-8;')
+    if data.get('format') == 'pdf':
+        question, sql = data.get('question', ''), data.get('sql', '')
+        if not isinstance(question, str) or len(question) > 500 or not isinstance(sql, str) or len(sql) > 2000:
+            return jsonify(error='Некорректный вопрос или SQL для отчёта'), 400
+        try:
+            report = build_pdf_report(columns, rows, question, sql, data.get('truncated') is True)
+        except ValueError as error:
+            return jsonify(error=str(error)), 400
+        except RuntimeError as error:
+            return jsonify(error=str(error)), 503
+        return send_file(report, mimetype='application/pdf', as_attachment=True, download_name='результат.pdf')
     return jsonify(error='Неизвестный формат экспорта'), 400
 
 

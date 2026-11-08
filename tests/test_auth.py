@@ -94,10 +94,14 @@ class AuthTests(unittest.TestCase):
                     response = client.post('/api/execute', json={'sql': sql})
                     self.assertEqual(response.status_code, 403, response.get_json())
                     self.assertTrue(response.get_json()['permission_denied'])
-            for fmt in ('csv', 'excel'):
+            for fmt in ('csv', 'excel', 'pdf'):
                 response = client.post('/api/export', json={'format': fmt, 'columns': ['ФИО'], 'rows': [['Анна']]})
                 self.assertEqual(response.status_code, 403 if role == 'guest' else 200)
-                if response.status_code == 200:
+                if response.status_code == 200 and fmt == 'pdf':
+                    self.assertEqual(response.mimetype, 'application/pdf')
+                    self.assertTrue(response.data.startswith(b'%PDF-'))
+                    self.assertIn('attachment', response.headers['Content-Disposition'])
+                elif response.status_code == 200:
                     self.assertIn('Анна', response.get_json()['data'])
             response = client.post('/api/execute', json={'sql': "UPDATE students SET first_name='Тест' WHERE id=1"}).get_json()
             if role == 'operator':

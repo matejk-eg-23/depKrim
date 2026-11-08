@@ -313,7 +313,7 @@ function renderExecution(result, sqlId, tblId, executedSQL) {
         block.innerHTML = `<div class="committed-result">Изменения сохранены. ${effect}</div>`;
         loadSchema();
     } else if (result.columns?.length) {
-        block.innerHTML = buildTable(result);
+        block.innerHTML = buildTable(result, tblId, block.closest('.result-card').dataset.question, executedSQL);
     } else {
         block.innerHTML = '<div class="no-rows">Запрос выполнен — строк не найдено.</div>';
     }
@@ -323,6 +323,7 @@ function renderResult(data, {saved = false} = {}) {
     const zone = document.getElementById('resultsZone');
     const card = document.createElement('div');
     card.className = 'result-card';
+    card.dataset.question = data.question || '';
     const suffix = crypto.randomUUID();
     const sqlId = 'sql_' + suffix;
     const tblId = 'tbl_' + suffix;
@@ -376,10 +377,10 @@ function copySQL(sqlId, btn) {
 }
 
 // ─── Построение таблицы ───────────────────────────────
-function buildTable(result) {
+function buildTable(result, tableId, question, sql) {
     const { columns, rows, count } = result;
-    const exportId = "exp_" + Date.now();
-    window["td" + exportId] = { columns, rows };
+    const exportId = "exp_" + tableId;
+    window["td" + exportId] = { columns, rows, question, sql, truncated: result.truncated };
     const rowLabel = declension(count);
 
     let html = `<div class="table-toolbar">
@@ -387,6 +388,7 @@ function buildTable(result) {
         <div class="export-group" ${currentUser?.permissions & 4 ? "" : "hidden"}>
             <button class="btn-export" onclick="exportCSV('${exportId}')">Экспорт CSV</button>
             <button class="btn-export" onclick="exportExcel('${exportId}')">Экспорт Excel</button>
+            <button class="btn-export" onclick="exportResult('${exportId}', 'pdf', this)">Экспорт PDF</button>
         </div>
     </div>
     <div class="table-wrap">
@@ -408,25 +410,43 @@ function buildTable(result) {
 }
 
 // ─── Экспорт ──────────────────────────────────────────
-async function exportResult(exportId, format) {
+async function exportResult(exportId, format, button) {
+    if (button) button.disabled = true;
     try {
-        const table = window["td" + exportId];
-        const result = await sendJSON('/api/export', {...table, format});
+        const {columns, rows, question, sql, truncated} = window["td" + exportId];
+        if (format === 'pdf') {
+            const response = await apiFetch('/api/export', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({format, columns, rows, question, sql, truncated}),
+            });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error.error || 'Не удалось сформировать PDF. Проверьте размер таблицы.');
+            }
+            downloadBlob(await response.blob(), 'результат.pdf');
+            return;
+        }
+        const result = await sendJSON('/api/export', {columns, rows, format});
         download(result.data, result.filename, result.mime);
     } catch (error) { showError(error.message); }
+    finally { if (button) button.disabled = false; }
 }
 
 function exportCSV(exportId) { return exportResult(exportId, 'csv'); }
 function exportExcel(exportId) { return exportResult(exportId, 'excel'); }
 
 function download(content, filename, mimeType) {
-    const blob = new Blob(["\uFEFF" + content], { type: mimeType });
+    downloadBlob(new Blob(["\uFEFF" + content], {type: mimeType}), filename);
+}
+
+function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // ─── Вспомогательные функции ──────────────────────────

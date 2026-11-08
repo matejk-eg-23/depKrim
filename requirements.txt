@@ -5,3 +5,4 @@ SQLAlchemy>=2.0,<2.1
 cryptography>=46,<51
 psycopg[binary]>=3.2,<4
 PyMySQL>=1.1,<2
+reportlab>=4.4,<6

@@ -269,7 +269,7 @@ textarea::placeholder { color: var(--text-hint); }
 .no-rows { font-size: 13px; color: var(--text-dim); }
 .table-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 6px; }
 .table-meta { font-size: 12px; color: var(--text-dim); }
-.export-group { display: flex; gap: 6px; }
+.export-group { display: flex; flex-wrap: wrap; gap: 6px; }
 .btn-export { font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 5px; border: 1px solid var(--border-mid); background: var(--surface); color: var(--text-dim); cursor: pointer; font-family: var(--sans); transition: all 0.12s; }
 .btn-export:hover { color: var(--accent); border-color: var(--accent); }
 

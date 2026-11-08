@@ -4,7 +4,7 @@ import sqlite3
 from contextlib import closing
 from datetime import datetime
 
-from database import DB_PATH, SECONDARY_DEPARTMENTS, agree_demo_name
+from database import ROOT, SECONDARY_DEPARTMENTS, agree_demo_name, grsu_db_path
 
 
 def repair_demo_data(conn):
@@ -34,9 +34,9 @@ def repair_demo_data(conn):
 
 
 if __name__ == '__main__':
-    with closing(sqlite3.connect(DB_PATH.as_uri() + '?mode=rw', uri=True)) as conn:
+    with closing(sqlite3.connect(grsu_db_path().as_uri() + '?mode=rw', uri=True)) as conn:
         conn.execute('PRAGMA foreign_keys = ON')
-        backup_dir = DB_PATH.parent / '.local-backups'
+        backup_dir = ROOT / '.local-backups'
         backup_dir.mkdir(exist_ok=True)
         backup_path = backup_dir / f'grsu-before-data-fix-{datetime.now():%Y%m%d-%H%M%S-%f}.db'
         with closing(sqlite3.connect(backup_path)) as backup:

@@ -3,12 +3,21 @@
 
 import sqlite3
 import json
+from contextlib import closing
 from random import Random
 from pathlib import Path
 from datetime import datetime, timedelta
 
-DB_PATH = Path(__file__).resolve().parent / "grsu.db"
-CATALOG = json.loads((Path(__file__).resolve().parent / 'grsu_catalog.json').read_text(encoding='utf-8'))
+ROOT = Path(__file__).resolve().parent
+DB_PATH = ROOT / 'data' / 'grsu.db'
+CATALOG = json.loads((ROOT / 'grsu_catalog.json').read_text(encoding='utf-8'))
+
+
+def grsu_db_path():
+    legacy = ROOT / 'grsu.db'
+    return legacy if not DB_PATH.exists() and legacy.is_file() else DB_PATH
+
+
 STUDENTS_PER_FACULTY = 20
 STUDENT_COUNT = STUDENTS_PER_FACULTY * len(CATALOG['faculties'])
 
@@ -405,10 +414,9 @@ def fill_data(conn):
 
 
 if __name__ == '__main__':
-    try:
-        conn = sqlite3.connect(DB_PATH)
+    path = grsu_db_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with closing(sqlite3.connect(path)) as conn:
         create_tables(conn)
         fill_data(conn)
-    finally:
-        conn.close()
-    print(f'[Готово] Учебная база сохранена: {DB_PATH}')
+    print(f'[Готово] Учебная база сохранена: {path}')

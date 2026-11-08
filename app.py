@@ -20,7 +20,7 @@ import sqlite3
 import requests
 from sql_security import inspect_sql, run_statement
 from security_audit import register_security, issue_preview, consume_preview
-from database import CATALOG
+from database import CATALOG, grsu_db_path
 from pdf_report import build_pdf_report
 from schema_cache import SchemaCache
 from external_connections import (register_connections, active_connection, connection_key,
@@ -54,7 +54,7 @@ register_connections(app)
 data_lock = threading.RLock()
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
-DB_PATH    = os.path.join(BASE_DIR, "grsu.db")
+DB_PATH    = str(grsu_db_path())
 HIST_PATH  = os.path.join(BASE_DIR, "history.json")
 FAV_PATH   = os.path.join(BASE_DIR, "favorites.json")
 PROMPTS_PATH = os.path.join(BASE_DIR, "prompts.json")

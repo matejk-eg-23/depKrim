@@ -369,7 +369,7 @@ function renderExecution(result, sqlId, tblId, executedSQL) {
     }
 }
 
-function renderResult(data, {saved = false} = {}) {
+function renderResult(data, {saved = false, manual = false} = {}) {
     const zone = document.getElementById('resultsZone');
     const card = document.createElement('div');
     card.className = 'result-card';
@@ -377,16 +377,20 @@ function renderResult(data, {saved = false} = {}) {
     const suffix = crypto.randomUUID();
     const sqlId = 'sql_' + suffix;
     const tblId = 'tbl_' + suffix;
-    const title = data.question || (saved ? 'Запрос без исходного вопроса' : 'Результат запроса');
+    const title = data.question || (manual ? 'Ручной запрос' : saved ? 'Запрос без исходного вопроса' : 'Результат запроса');
     let html = `<div class="card-question"><span class="q-dot"></span><span>${escapeHtml(title)}</span></div>`;
-    if (data.sql) {
-        html += `<div class="sql-block"><div class="block-label" id="label_${sqlId}">${saved ? 'Сохранённый SQL' : 'Сгенерированный SQL'}</div><textarea class="sql-textarea" id="${sqlId}" aria-labelledby="label_${sqlId}" spellcheck="false">${escapeHtml(data.sql)}</textarea><div class="sql-actions"><button class="btn-sm primary" onclick="runSQL('${sqlId}', '${tblId}')">Проверить / выполнить</button><button class="btn-sm" onclick="copySQL('${sqlId}', this)">Копировать</button><button class="btn-sm star" data-favorite>★ В избранное</button></div></div>`;
+    if (data.sql || manual) {
+        const label = manual ? 'SQL для выполнения' : saved ? 'Сохранённый SQL' : 'Сгенерированный SQL';
+        html += `<div class="sql-block"><div class="block-label" id="label_${sqlId}">${label}</div><textarea class="sql-textarea" id="${sqlId}" aria-labelledby="label_${sqlId}" spellcheck="false">${escapeHtml(data.sql)}</textarea><div class="sql-actions"><button class="btn-sm primary" onclick="runSQL('${sqlId}', '${tblId}')">Проверить / выполнить</button><button class="btn-sm" onclick="copySQL('${sqlId}', this)">Копировать</button><button class="btn-sm star" data-favorite>★ В избранное</button></div></div>`;
     }
     html += `<div class="table-block" id="${tblId}"></div>`;
     card.innerHTML = html;
     zone.insertBefore(card, zone.firstChild);
-    card.querySelector('[data-favorite]')?.addEventListener('click', () => addToFavorites(data.question, document.getElementById(sqlId).value));
-    if (saved) {
+    card.querySelector('[data-favorite]')?.addEventListener('click', () => {
+        const sql = document.getElementById(sqlId).value;
+        if (sql.trim()) addToFavorites(data.question, sql);
+    });
+    if (saved || manual) {
         document.getElementById('emptyState')?.remove();
         document.getElementById(sqlId).focus();
     } else {

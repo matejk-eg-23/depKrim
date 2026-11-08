@@ -61,7 +61,7 @@ class UniversityDatabaseTests(unittest.TestCase):
             self.assertEqual(list(self.conn.iterdump()), list(other.iterdump()))
 
     def test_database_path_is_relative_to_script(self):
-        self.assertEqual(DATABASE['DB_PATH'], ROOT / 'grsu.db')
+        self.assertEqual(DATABASE['DB_PATH'], ROOT / 'data' / 'grsu.db')
 
     def test_grsu_catalog_and_every_faculty_has_demo_students(self):
         self.assertEqual(self.conn.execute("SELECT code FROM specializations WHERE name='Кибербезопасность'").fetchone()[0], '6-05-0533-12')

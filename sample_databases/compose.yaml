@@ -1,0 +1,25 @@
+name: depkrim-samples
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: depkrim-local-admin
+      MYSQL_DATABASE: demo_shop
+    ports:
+      - "127.0.0.1:13306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./mysql:/docker-entrypoint-initdb.d:ro
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: depkrim-local-admin
+      POSTGRES_DB: demo_research
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgresql:/docker-entrypoint-initdb.d:ro
+volumes:
+  mysql-data:
+  postgres-data:

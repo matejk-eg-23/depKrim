@@ -31,14 +31,18 @@ OLLAMA_BASE_URL = "http://localhost:11434"
 
 def start_ollama():
     try:
-        requests.get(OLLAMA_BASE_URL, timeout=2)
+        requests.get(OLLAMA_BASE_URL, timeout=2).raise_for_status()
+    except requests.RequestException:
+        pass
+    else:
         print("Ollama уже запущена")
-    except:
-        print("Запускаю Ollama...")
+        return
+
+    print("Запускаю Ollama...")
+    try:
         subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        import time
-        time.sleep(3)
-        print("Ollama запущена")
+    except OSError:
+        print("Не удалось запустить Ollama. Проверенные примеры и ручной SQL доступны.")
 
 app = Flask(__name__,
             template_folder='templates',

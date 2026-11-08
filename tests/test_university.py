@@ -144,6 +144,13 @@ class UniversityDatabaseTests(unittest.TestCase):
             self.assertEqual(result.get_json()['result']['count'], 13)
             generate.assert_not_called()
 
+    def test_startup_continues_when_ollama_command_is_missing(self):
+        state = self.generation_state()
+        with patch('requests.get', side_effect=state['requests'].ConnectionError()), \
+                patch('subprocess.Popen', side_effect=FileNotFoundError()) as launch:
+            state['start_ollama']()
+        launch.assert_called_once()
+
     def test_all_suggested_questions_use_valid_templates(self):
         state = self.generation_state()
         client = authenticated_client(state['app'])
